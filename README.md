@@ -91,7 +91,9 @@ Updated as I go - each line is something I have demonstrated in this repo.
 .
 ├── cheatsheets/          Reference notes written while learning
 │   ├── docker-from-scratch.md        Concepts, mental models, debugging flow
-│   └── docker-complete-cheatsheet.md Full command reference
+│   ├── docker-complete-cheatsheet.md Practical daily reference, 23 sections
+│   ├── docker-commands.md            Exhaustive command reference, 41 sections
+│   └── docker-cheatsheet.md          Print-friendly one-page summary
 ├── daily-summary/        Long-form notes, one file per day
 │   ├── day-00-environment-setup.md   Engine, daemon, socket permissions
 │   ├── day-01-containers.md          Lifecycle, ports, exit codes, signals
