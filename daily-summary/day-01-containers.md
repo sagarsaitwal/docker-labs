@@ -1,10 +1,10 @@
 # Day 1 — Containers: run, inspect, exec, destroy
 
-**Date:** 29 Aug 2026
+**Date:** 29-30 Aug 2026
 **Goal:** Run a real service in a container, observe it from outside and inside,
 and prove what survives deletion and what doesn't.
-**Outcome:** Complete. nginx served to the Windows browser; writable-layer
-behaviour demonstrated.
+**Outcome:** Complete. Part 1 - the first lab. Part 2 (section 8 onward) -
+extended practice on lifecycle, multi-container management, and exit codes.
 
 ---
 
@@ -232,4 +232,235 @@ Lab directory : ~/docker-lab
 Images        : nginx:1.27, hello-world
 Containers    : cleaned up
 Repo          : github.com/sagarsaitwal/docker-labs (public, CI green)
+```
+
+---
+
+# Part 2 — Extended practice (same day)
+
+Three additional tasks to widen Day 1 coverage beyond the first lab.
+
+---
+
+## 8. Task 1 — stop is not the same as remove
+
+### What was run
+
+```bash
+docker run -d --name lab1 -p 8080:80 nginx:1.27
+docker exec lab1 sh -c 'echo "<h1>version A</h1>" > /usr/share/nginx/html/index.html'
+docker stop lab1        # docker ps -> gone; docker ps -a -> still listed, Exited
+docker start lab1
+curl localhost:8080
+docker diff lab1
+docker rm -f lab1
+```
+
+### What happened
+
+The `exec` write **did not take effect**, so "version A" never appeared. The
+container behaved correctly; the write itself failed.
+
+Likely cause: the host shell consumed the `>` before Docker saw it. `sh -c '...'`
+relies on single quotes protecting the redirect:
+
+| Shell | Behaviour |
+|---|---|
+| bash (Fedora) | works - `>` is passed through to `sh` inside the container |
+| PowerShell | usually works - single quotes are literal |
+| **cmd.exe** | **fails** - `'` is not a quote character, so `>` redirects on the host |
+
+Isolation test for next time:
+
+```bash
+docker exec t sh -c 'echo hi > /tmp/probe'; echo "exit=$?"
+docker exec t cat /tmp/probe
+```
+
+### The principle (independent of the failed write)
+
+The writable layer belongs to the **container object**, not to the running
+process. Therefore:
+
+```text
+docker stop    -> process halted, container object KEPT   -> changes survive
+docker start   -> same layer, same changes
+docker restart -> same layer, same changes
+docker rm      -> container object DESTROYED              -> changes gone
+```
+
+This refines the Day 1 conclusion. "Changes don't persist" is too broad. The
+accurate statement is: **changes persist for the life of the container, and a
+container's life ends at `rm`, not at `stop`.**
+
+### `docker diff`
+
+Shows precisely what the writable layer contains:
+
+```text
+A  Added    - a file that did not exist in the image
+C  Changed  - a file from the image that was modified
+D  Deleted  - a file from the image that was removed
+```
+
+---
+
+## 9. Task 2 — managing several containers
+
+```bash
+docker run -d --name web1 -p 8081:80 nginx:1.27-alpine
+docker run -d --name web2 -p 8082:80 nginx:1.27-alpine
+docker run -d --name web3 -p 8083:80 nginx:1.27-alpine
+docker run -d --name web4 -p 8081:80 nginx:1.27-alpine   # deliberate clash
+```
+
+### The port clash
+
+```text
+Bind for :::8081 failed: port is already allocated
+```
+
+- The conflict is on the **host** side of `-p 8081:80`. Host port 8081 was
+  already held by **web1**; web4 was the container that failed.
+- `:::8081` is the IPv6 bind attempt - Docker publishes on IPv4 and IPv6.
+- **Container port 80 can be reused freely.** Every container has its own
+  network namespace, so three containers all listening on 80 internally is
+  normal. Only host ports must be unique.
+
+Fix: `docker run -d --name web4 -p 8084:80 nginx:1.27-alpine`
+
+### Listing and filtering
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Ports}}\t{{.Status}}'
+docker ps --filter name=web
+docker ps -a --filter status=exited
+docker ps -q                       # IDs only - "quiet", built for scripting
+docker stats --no-stream
+```
+
+### Bulk operations
+
+```bash
+docker stop $(docker ps -q)        # all RUNNING containers
+docker rm   $(docker ps -aq)       # ALL containers on the machine
+```
+
+Safe in a lab. Never on a shared or production host - `$(docker ps -aq)` is not
+scoped to the containers you just created.
+
+---
+
+## 10. Task 3 — exit codes and signals
+
+```bash
+docker run --name t0   alpine sh -c 'echo done'
+docker run --name t1   alpine sh -c 'exit 1'
+docker run --name t127 alpine sh -c 'nosuchcommand'
+docker run --name t126 alpine sh -c 'touch /x; chmod -x /x; /x'
+docker run -d --name t143 nginx:1.27 && docker stop t143
+docker run -d --name t137 nginx:1.27 && docker kill t137
+
+for c in t0 t1 t127 t126 t143 t137; do
+  echo "$c -> $(docker inspect -f '{{.State.ExitCode}}' $c)"
+done
+```
+
+### Results observed
+
+| Container | Cause | Exit | Note |
+|---|---|:--:|---|
+| `t0` | `echo done` finished | 0 | Success. Not a failure. |
+| `t1` | explicit `exit 1` | 1 | Application error |
+| `t127` | `nosuchcommand` | 127 | `sh: nosuchcommand: not found` |
+| `t126` | file exists, not executable | 126 | `sh: /x: Permission denied` |
+| `t143` | `docker stop` on nginx | **0** | see finding below |
+| `t137` | `docker kill` on nginx | 137 | 128 + 9 (SIGKILL) |
+
+Memory hook: **126 = found it, can't run it. 127 = can't find it.**
+
+### Key finding - `docker stop` does not always give 143
+
+Expected 143, observed 0. Verified the cause directly:
+
+```bash
+docker image inspect nginx:1.27 --format '{{.Config.StopSignal}}'
+# SIGQUIT
+
+docker image inspect alpine --format '{{.Config.StopSignal}}'
+# (empty -> defaults to SIGTERM)
+```
+
+The nginx image overrides `STOPSIGNAL` to `SIGQUIT`, which nginx handles as a
+graceful shutdown and then exits deliberately with status 0.
+
+The correct rule:
+
+```text
+128 + N   applies when a process is TERMINATED BY a signal
+          (it did not handle the signal, so the kernel killed it)
+
+exit 0    applies when a process HANDLES the signal and exits cleanly
+```
+
+So a real 143 comes from an application that **ignores** SIGTERM. `docker stop`
+sends the image's `STOPSIGNAL`, waits about 10 seconds, then sends `SIGKILL`
+(which produces 137). SIGKILL can never be caught, which is why `t137` is
+deterministic while `t143` depended on how nginx was written.
+
+### Diagnosing an unexplained 137
+
+137 means SIGKILL, but not necessarily that a human ran `docker kill`. Check for
+the Linux OOM killer first:
+
+```bash
+docker inspect <container> --format '{{.State.OOMKilled}}'   # true = out of memory
+docker stats
+free -h
+```
+
+---
+
+## 11. Corrections to earlier conclusions
+
+| Earlier belief | Corrected |
+|---|---|
+| "Changes to a container never persist" | They persist across `stop`/`start`/`restart`. Only `rm` destroys them. |
+| "`docker stop` produces exit code 143" | Only if the app ignores the stop signal. A well-behaved app exits 0. Check `.Config.StopSignal`. |
+| "`docker diff` shows A and C" | Also `D` for deleted. |
+
+---
+
+## 12. Added to "keep in mind"
+
+- **A container's life ends at `rm`, not at `stop`.** This is the precise version
+  of the disposability rule.
+- **Only host ports must be unique.** Container ports repeat freely - separate
+  network namespaces.
+- **Read `.Config.StopSignal` before predicting an exit code.** Images can and do
+  override it.
+- **Exit 0 is not a failure.** A short-lived task container exiting 0 has done
+  its job. Ask what the container was *supposed* to do before assuming a bug.
+- **137 without a `docker kill` means suspect OOM.** Check `.State.OOMKilled`.
+- **`$(docker ps -aq)` is machine-wide.** It is not scoped to your current work.
+- **Watch host-shell quoting with `docker exec sh -c '...'`.** A redirect can be
+  consumed by the host shell instead of reaching the container.
+
+---
+
+## 13. Commands added to the toolkit
+
+```bash
+docker diff <c>                                        # what the writable layer holds
+docker ps --format 'table {{.Names}}\t{{.Ports}}\t{{.Status}}'
+docker ps --filter name=web
+docker ps -a --filter status=exited
+docker stop $(docker ps -q)
+docker rm   $(docker ps -aq)
+docker inspect -f '{{.State.ExitCode}}' <c>
+docker inspect -f '{{.State.OOMKilled}}' <c>
+docker image inspect <image> --format '{{.Config.StopSignal}}'
+docker kill <c>                                        # SIGKILL, always 137
+docker cp <c>:/path/in/container ./local               # pull files out
+docker cp ./local <c>:/path/in/container               # push files in
 ```
