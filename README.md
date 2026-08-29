@@ -19,8 +19,9 @@
 ## What this is
 
 A working repository, not a tutorial copy. Every Dockerfile here was written by
-hand, every stack was run locally, and every failure is recorded in
-[`JOURNAL.md`](JOURNAL.md) with its root cause.
+hand, every stack was run locally, and every failure is recorded with its root
+cause - briefly in [`JOURNAL.md`](JOURNAL.md), and in full in
+[`daily-summary/`](daily-summary/), one file per day.
 
 Continuous integration lints and builds every image on each push, so the badge
 above reflects the real state of the code rather than a claim about it.
@@ -34,8 +35,8 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 
 | Day | Topic | Status | Evidence |
 |:--:|---|---|---|
-| 0 | Engine install, daemon, socket permissions | **Complete** | [journal](JOURNAL.md#day-0--environment-setup-fedora-44-on-wsl2) |
-| 1 | Containers: `run`, `ps`, `logs`, `exec`, `rm` | **Complete** | [journal](JOURNAL.md#day-1--containers-run-inspect-exec-destroy) |
+| 0 | Engine install, daemon, socket permissions | **Complete** | [journal](JOURNAL.md#day-0--environment-setup-fedora-44-on-wsl2) &middot; [notes](daily-summary/day-00-environment-setup.md) |
+| 1 | Containers: lifecycle, ports, exit codes, signals | **Complete** | [journal](JOURNAL.md#day-1--containers-run-inspect-exec-destroy) &middot; [notes](daily-summary/day-01-containers.md) |
 | 2 | Environment variables, `--rm`, restart policies | Not started | |
 | 3 | Images, tags, digests, registries | Not started | |
 | 4 | Writing a first Dockerfile | Not started | |
@@ -61,13 +62,23 @@ Updated as I go - each line is something I have demonstrated in this repo.
 - **Why a container is not a VM.** My host is Fedora; `cat /etc/os-release`
   inside an `nginx` container reports Debian. The image ships its own userland
   and shares the host kernel.
-- **Why an edit inside a running container disappears.** It lands in the
-  container's thin writable layer, which is destroyed by `docker rm`. Persistence
-  requires a volume or a bind mount.
+- **When an edit inside a container survives, and when it doesn't.** Changes land
+  in the container's thin writable layer, which belongs to the *container object*
+  - so they survive `stop`/`start`/`restart` and are destroyed only by `rm`.
+  Persistence beyond that requires a volume or a bind mount.
 - **Tag versus digest.** `nginx:1.27` is a movable label; `sha256:6784fb08...` is
   the immutable identity. Only one of the two makes a deployment reproducible.
 - **Why `EXPOSE` publishes nothing.** It is metadata. `-p host:container` is what
   creates the mapping.
+- **Why only host ports must be unique.** Each container has its own network
+  namespace, so any number of containers can listen on port 80 internally; the
+  collision (`port is already allocated`) is always on the host side of `-p`.
+- **What a container's exit code is telling me.** 126 found-but-not-executable,
+  127 not-found, 137 SIGKILL (check `.State.OOMKilled` before blaming a human),
+  143 SIGTERM. The `128 + N` rule applies only when a process is *terminated by*
+  a signal - one that handles it and shuts down cleanly exits 0. Verified this by
+  finding that `docker stop` on nginx returns 0, because the image sets
+  `STOPSIGNAL=SIGQUIT` and nginx exits gracefully.
 - **Why the `docker` group matters.** The daemon socket is `root:docker` mode
   `srw-rw----`, so group membership - not sudo - is what grants access, and it
   is effectively root-equivalent on the host.
@@ -81,6 +92,10 @@ Updated as I go - each line is something I have demonstrated in this repo.
 ├── cheatsheets/          Reference notes written while learning
 │   ├── docker-from-scratch.md        Concepts, mental models, debugging flow
 │   └── docker-complete-cheatsheet.md Full command reference
+├── daily-summary/        Long-form notes, one file per day
+│   ├── day-00-environment-setup.md   Engine, daemon, socket permissions
+│   ├── day-01-containers.md          Lifecycle, ports, exit codes, signals
+│   └── day-02 ... day-14             Prepared: plan, commands, drill
 ├── examples/
 │   └── first-stack/      Minimal correct Compose stack (nginx + Postgres)
 ├── projects/             Three builds of increasing difficulty
