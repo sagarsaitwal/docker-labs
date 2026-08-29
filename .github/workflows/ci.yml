@@ -1,0 +1,100 @@
+name: CI
+
+# Runs on every push and pull request.
+#
+# All three jobs DISCOVER their inputs instead of hardcoding paths, so this
+# pipeline is green today (when the repo has no Dockerfiles yet) and starts
+# doing real work the moment you add your first one. Nothing to edit.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dockerfile-lint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run hadolint on every Dockerfile
+        run: |
+          set -uo pipefail
+          mapfile -t files < <(find . -path ./.git -prune -o -type f \
+            \( -name 'Dockerfile' -o -name 'Dockerfile.*' \) -print | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Dockerfiles found yet — nothing to lint."
+            echo "This job starts checking your work as soon as you add one."
+            exit 0
+          fi
+
+          rc=0
+          for f in "${files[@]}"; do
+            echo "::group::hadolint $f"
+            docker run --rm -v "$PWD:/work" -w /work \
+              hadolint/hadolint:2.12.0-alpine hadolint "$f" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+  compose-validate:
+    name: Validate Compose files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render every Compose file to catch syntax and interpolation errors
+        run: |
+          set -uo pipefail
+          mapfile -t files < <(find . -path ./.git -prune -o -type f \
+            \( -name 'compose.yaml'        -o -name 'compose.yml' \
+            -o -name 'docker-compose.yaml' -o -name 'docker-compose.yml' \) -print | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Compose files found yet — nothing to validate."
+            exit 0
+          fi
+
+          rc=0
+          for f in "${files[@]}"; do
+            echo "::group::docker compose -f $f config"
+            docker compose -f "$f" config --quiet || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+  build-images:
+    name: Build images
+    runs-on: ubuntu-latest
+    needs: dockerfile-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build every Dockerfile against its own directory
+        run: |
+          set -uo pipefail
+          mapfile -t files < <(find . -path ./.git -prune -o -type f \
+            -name 'Dockerfile' -print | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Dockerfiles found yet — nothing to build."
+            exit 0
+          fi
+
+          rc=0
+          for f in "${files[@]}"; do
+            ctx="$(dirname "$f")"
+            tag="ci/$(basename "$ctx"):${GITHUB_SHA::7}"
+            echo "::group::docker build -t $tag $ctx"
+            docker build --pull -t "$tag" "$ctx" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc

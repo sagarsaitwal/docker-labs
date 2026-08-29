@@ -1,0 +1,22 @@
+# Force LF line endings in the repository and on checkout.
+#
+# Why this matters: this repo is edited on Windows but every script is executed
+# inside a Linux container. Git's default on Windows checks files out with CRLF,
+# which makes a shell script fail inside a container with a misleading error:
+#
+#   exec /entrypoint.sh: no such file or directory
+#
+# The file exists; the kernel is trying to run "/bin/sh\r". This one line
+# prevents an afternoon of confusion.
+
+* text=auto eol=lf
+
+# Never touch binary files.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.tar  binary
+*.gz   binary

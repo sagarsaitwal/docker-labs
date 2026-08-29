@@ -1,0 +1,33 @@
+# --- Secrets: never commit these ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Dependencies (rebuilt from lockfiles, never committed) ---
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Build output ---
+dist/
+build/
+*.tar
+
+# --- Local data that volumes may write out ---
+pgdata/
+data/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
+npm-debug.log*

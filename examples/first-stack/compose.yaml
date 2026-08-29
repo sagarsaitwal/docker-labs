@@ -1,0 +1,46 @@
+# A minimal but CORRECT two-service stack.
+#
+# Nothing here is built from source - both services use official images - so
+# this file is a reference for Compose mechanics, not for Dockerfiles.
+# Every line demonstrates a practice worth copying.
+#
+#   docker compose -f examples/first-stack/compose.yaml up -d
+#   docker compose -f examples/first-stack/compose.yaml ps
+#   docker compose -f examples/first-stack/compose.yaml down
+#
+# Note: there is no `version:` key. It has been obsolete since Compose v2.
+
+services:
+  web:
+    image: nginx:1.27-alpine          # pinned tag, not `latest`
+    ports:
+      - "${WEB_PORT:-8080}:80"        # override with WEB_PORT=9090 docker compose up
+    depends_on:
+      db:
+        condition: service_healthy    # waits for READY, not merely for "started"
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devsecret}   # dev default; real
+                                                           # secrets come from
+                                                           # the environment
+    volumes:
+      - db-data:/var/lib/postgresql/data   # named volume = the data survives
+                                           # `docker compose down`
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  db-data:
+
+# No `networks:` block is needed. Compose creates one automatically and every
+# service joins it, so `web` can reach the database at the hostname `db`.

@@ -1,0 +1,20 @@
+# hadolint configuration - Dockerfile linting rules for CI.
+# Full rule list: https://github.com/hadolint/hadolint#rules
+
+# Only fail the build on `warning` and above. Style/info hints are shown
+# in the CI log as guidance without turning the build red.
+failure-threshold: warning
+
+ignored:
+  # DL3008 - "Pin versions in apt-get install".
+  # DL3018 - "Pin versions in apk add".
+  # Both are correct advice for production images. They are ignored here so
+  # that learning exercises are not blocked by them. Remove these two lines
+  # once you are comfortable pinning package versions - the linter will then
+  # hold you to real production standards.
+  - DL3008
+  - DL3018
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io
