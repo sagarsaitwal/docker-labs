@@ -32,6 +32,41 @@ has been covered yet.
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
+### Session handoff - read this first
+
+**Last session ended:** 31 Aug 2026. Sagar's closing words: *"we will continue
+day 2 in morning."*
+
+Day 2's core lesson is finished and written up. What was offered but **not yet
+run** is the extended practice, in the same style as Day 1's Part 2. Start there
+before moving on:
+
+1. **Watch a crash loop back off in real time.**
+   ```bash
+   docker run -d --name loop --restart on-failure alpine sh -c 'sleep 1; exit 1'
+   docker events --filter container=loop &
+   watch -n 1 "docker inspect -f 'restarts={{.RestartCount}} status={{.State.Status}}' loop"
+   ```
+   Goal: see that retries are not a tight loop - the delay doubles. Compare
+   `on-failure` (unlimited) against `on-failure:3`.
+
+2. **Prove the environment precedence chain end to end.**
+   Build a case where an image `ENV`, an `--env-file` entry, and a `-e` flag all
+   set the same variable, and predict the winner before running it.
+   Expected: image `ENV` < `--env-file` < `-e`.
+
+3. **Reconfigure a live service with `docker update`.**
+   Change the restart policy and a memory limit on a running container without
+   recreating it, then try to change an environment variable the same way and
+   observe that no such option exists.
+
+Afterwards, append the results to `daily-summary/day-02-env-and-restart.md` as a
+"Part 2 - extended practice" section (mirroring `day-01-containers.md`), then
+move to **Day 3 - images, tags, digests, registries**.
+
+If Sagar actually meant Day 3, note that Day 2 is already complete and go
+straight there.
+
 ---
 
 ## 3. Environment
