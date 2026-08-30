@@ -118,6 +118,7 @@ Updated as I go - each line is something I have demonstrated in this repo.
 │   ├── 02-python-redis/      Non-root, caching, resource limits
 │   └── 03-react-multistage/  Multi-stage builds and image size reduction
 ├── .github/workflows/    CI: hadolint, Compose validation, image builds
+├── CLAUDE.md             Project context for Claude Code sessions
 └── JOURNAL.md            What I built, what broke, what I learned
 ```
 
