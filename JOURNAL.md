@@ -114,7 +114,65 @@ reason `docker compose down -v` is dangerous while `docker compose down` is not.
 
 ---
 
-## Day 2 — _next up_
+## Day 2 — Configuration from outside the image
+
+Same image, different behaviour, no rebuild. That is the whole point of runtime
+configuration.
+
+```bash
+docker run --rm -e GREETING=hello alpine printenv GREETING
+docker run --rm -e MY_TOKEN alpine printenv MY_TOKEN     # value taken from host
+docker run --rm --env-file app.env alpine env
+```
+
+**Gotcha found:** an `--env-file` is not a shell script. Writing
+`QUOTED="hello"` produces the value `"hello"` — quotes and all. No quote
+stripping, no `$VAR` expansion, no `export`. Precedence, measured:
+image `ENV` < `--env-file` < `-e`.
+
+**The important limit:** a container's environment is fixed at creation. There
+is no command to change it on a running container, and `docker exec -e` only
+affects that one exec process:
+
+```bash
+docker exec -e MODE=two envtest printenv MODE  # two  - inside this exec only
+docker exec envtest printenv MODE              # one  - container unchanged
+```
+
+So changing configuration means **replacing the container**, not reconfiguring
+it. This is exactly the chore Compose automates.
+
+The exception, which I checked rather than assumed: `docker update` can change
+restart policy and resource limits (CPU, memory, pids) on a live container. It
+cannot touch environment, ports, mounts, image, command or name.
+
+**Restart policies.** Ran the experiment rather than reading the answer:
+
+```bash
+docker run -d --name a1 --restart always         nginx:1.27
+docker run -d --name u1 --restart unless-stopped nginx:1.27
+docker stop a1 u1
+sudo systemctl restart docker
+docker ps -a
+```
+
+`a1` came back; `u1` stayed down. Both restart on crash and on daemon startup —
+they differ in exactly one case, a container the user stopped by hand. `always`
+overrides that decision, `unless-stopped` respects it. That makes
+`unless-stopped` the sensible default for a service you sometimes take down.
+
+Also worth recording: restart policies are **not a scheduler**. Docker retries
+immediately with a doubling backoff. "Nightly" belongs to cron or a systemd
+timer running `docker run --rm`.
+
+**Security note:** environment variables are not secrets. `docker inspect`,
+`docker exec env`, `/proc/1/environ`, and shell history all expose them.
+`--env-file` keeps values out of history and the process list, which is better
+hygiene, but the value still lands in `.Config.Env`.
+
+---
+
+## Day 3 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

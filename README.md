@@ -37,7 +37,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 |:--:|---|---|---|
 | 0 | Engine install, daemon, socket permissions | **Complete** | [journal](JOURNAL.md#day-0--environment-setup-fedora-44-on-wsl2) &middot; [notes](daily-summary/day-00-environment-setup.md) |
 | 1 | Containers: lifecycle, ports, exit codes, signals | **Complete** | [journal](JOURNAL.md#day-1--containers-run-inspect-exec-destroy) &middot; [notes](daily-summary/day-01-containers.md) |
-| 2 | Environment variables, `--rm`, restart policies | Not started | |
+| 2 | Environment variables, `--rm`, restart policies | **Complete** | [journal](JOURNAL.md#day-2--configuration-from-outside-the-image) &middot; [notes](daily-summary/day-02-env-and-restart.md) |
 | 3 | Images, tags, digests, registries | Not started | |
 | 4 | Writing a first Dockerfile | Not started | |
 | 5 | Layer caching and `.dockerignore` | Not started | |
@@ -79,6 +79,18 @@ Updated as I go - each line is something I have demonstrated in this repo.
   a signal - one that handles it and shuts down cleanly exits 0. Verified this by
   finding that `docker stop` on nginx returns 0, because the image sets
   `STOPSIGNAL=SIGQUIT` and nginx exits gracefully.
+- **Why changing configuration means replacing the container.** A container's
+  environment is fixed at creation; `docker exec -e` affects only that exec
+  process. `docker update` is the narrow exception - it changes restart policy
+  and resource limits on a live container, never environment, ports or mounts.
+- **`always` versus `unless-stopped`.** Both restart on crash and on daemon
+  startup. They differ in one case only: a container stopped by hand. `always`
+  overrides that decision on the next daemon restart, `unless-stopped` respects
+  it - which makes it the sensible default for a service.
+- **Why environment variables are not secrets.** The value lands in
+  `.Config.Env`, readable by `docker inspect`, `docker exec env`, and
+  `/proc/1/environ`. `--env-file` keeps it out of shell history and the host
+  process list, but does not hide it from anyone in the `docker` group.
 - **Why the `docker` group matters.** The daemon socket is `root:docker` mode
   `srw-rw----`, so group membership - not sudo - is what grants access, and it
   is effectively root-equivalent on the host.
@@ -97,7 +109,8 @@ Updated as I go - each line is something I have demonstrated in this repo.
 ├── daily-summary/        Long-form notes, one file per day
 │   ├── day-00-environment-setup.md   Engine, daemon, socket permissions
 │   ├── day-01-containers.md          Lifecycle, ports, exit codes, signals
-│   └── day-02 ... day-14             Prepared: plan, commands, drill
+│   ├── day-02-env-and-restart.md     Runtime config, restart policies
+│   └── day-03 ... day-14             Prepared: plan, commands, drill
 ├── examples/
 │   └── first-stack/      Minimal correct Compose stack (nginx + Postgres)
 ├── projects/             Three builds of increasing difficulty
