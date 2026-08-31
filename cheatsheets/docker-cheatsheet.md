@@ -26,6 +26,8 @@
 | `docker top web` | Processes |
 | `docker stats` | Live CPU/memory/I/O |
 | `docker inspect web` | Full container config/state |
+| `docker update --restart unless-stopped -m 512m web` | Reconfigure live (restart/limits only, never env/ports) |
+| `docker events --filter container=web` | Live event stream (start/die/restart) |
 
 ### Run patterns
 
@@ -36,6 +38,15 @@ docker run --rm -it --env-file .env myapp:1.0 sh
 docker run -d -v app-data:/data myapp:1.0
 docker run -d --network app-net --name api myapp:1.0
 ```
+
+### Restart policies
+
+```text
+no | on-failure | on-failure:N | always | unless-stopped
+```
+
+Backoff doubles but caps at ~60s - a long crash loop settles into a steady
+one-per-minute cadence, not one you can watch climb.
 
 ---
 

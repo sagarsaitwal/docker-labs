@@ -498,6 +498,37 @@ unless-stopped
 **Use case:** Automatically restart services after failures or Docker
 Engine restarts.
 
+**Backoff:** the delay before each retry starts small and doubles, but caps at
+roughly 60 seconds - a long-running crash loop settles into a steady
+one-per-minute cadence, not a visibly climbing one (confirmed by streaming
+`docker events` for close to an hour).
+
+------------------------------------------------------------------------
+
+## `docker update` - reconfigure a live container
+
+``` bash
+docker update --restart unless-stopped -m 512m web
+```
+
+Changes take effect on the existing container - no recreation, no new
+container ID. The full flag list is short and fixed:
+
+``` text
+--restart, --cpus, --cpu-shares, --cpu-period, --cpu-quota, --cpuset-cpus,
+--cpuset-mems, --cpu-rt-period, --cpu-rt-runtime, -m/--memory,
+--memory-reservation, --memory-swap, --pids-limit, --blkio-weight
+```
+
+**Use case:** Tune restart policy or resource limits on a running container
+without downtime.
+
+**What it cannot do:** there is no `-e`/`--env`, `-p`, `--mount`, image, or
+name flag - confirmed by reading `docker update --help` directly rather than
+assuming. Anything that is part of a container's identity (environment,
+ports, mounts, image, command, name) requires removing and recreating the
+container.
+
 ------------------------------------------------------------------------
 
 # 5. Container Lifecycle
@@ -927,6 +958,24 @@ command line.
 
 **Security note:** `.env` files are not automatically secure secret
 stores.
+
+**Gotcha:** an `--env-file` is not a shell script - no quote stripping, no
+`$VAR` expansion, no `export`. `QUOTED="hello"` in the file becomes the
+literal value `"hello"`, quotes included.
+
+------------------------------------------------------------------------
+
+## Environment variable precedence
+
+``` text
+image ENV  <  --env-file  <  -e
+```
+
+When the same variable is set by an image's `ENV`, an `--env-file` entry, and
+a `-e` flag all at once, `-e` wins; `--env-file` beats the image default.
+Later `-e` flags also beat earlier ones. A container's environment is fixed at
+creation regardless of source - there is no command to change it afterward on
+a running container (`docker exec -e` only affects that one exec process).
 
 ------------------------------------------------------------------------
 

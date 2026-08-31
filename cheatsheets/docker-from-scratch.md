@@ -151,6 +151,14 @@ docker run --rm -it ubuntu bash    # --rm = auto-delete on exit
 `docker run ubuntu bash` starts bash, sees no input, and exits instantly. That is
 why "my ubuntu container won't stay up".
 
+**You replace containers, you don't reconfigure them.** A container's
+environment, ports, mounts, image, and command are all fixed at `create`/`run`
+time - there is no command to change them on a running container. The one
+exception is `docker update`, which can change the restart policy and
+resource limits (CPU, memory, pids, blkio) live, and nothing else. Confirmed
+by reading `docker update --help` rather than assuming: no `-e`, no `-p`, no
+`--mount` flag exists there.
+
 ---
 
 ## 3) Anatomy of `docker run` — the flags that matter
@@ -168,14 +176,14 @@ docker run [OPTIONS] IMAGE [COMMAND] [ARGS...]
 | `-p 8080:80` | Publish **host:container** port | Day 1 |
 | `-e KEY=val` | Environment variable | Day 2 |
 | `--env-file .env` | Env vars from a file | Day 2 |
-| `-v name:/path` | Named volume (persistence) | Day 3 |
-| `-v "$PWD":/app` | Bind mount (live code) | Day 3 |
-| `-w /app` | Working directory inside | Day 3 |
-| `--network net` | Join a user-defined network | Day 4 |
-| `--restart unless-stopped` | Auto-restart policy | Day 5 |
-| `-u 1000` | Run as a non-root user | Day 6 |
-| `-m 512m --cpus 1.5` | Memory / CPU limits | Day 6 |
-| `--entrypoint sh` | Override the entrypoint (debugging gold) | Day 7 |
+| `--restart unless-stopped` | Auto-restart policy | Day 2 |
+| `-w /app` | Working directory inside | Day 4 |
+| `-v name:/path` | Named volume (persistence) | Day 6 |
+| `-v "$PWD":/app` | Bind mount (live code) | Day 7 |
+| `--network net` | Join a user-defined network | Day 8 |
+| `--entrypoint sh` | Override the entrypoint (debugging gold) | Day 11 |
+| `-u 1000` | Run as a non-root user | Day 14 |
+| `-m 512m --cpus 1.5` | Memory / CPU limits | Day 14 |
 
 Anything after the image name **replaces the image's default command**:
 
@@ -622,7 +630,7 @@ Other Windows specifics:
 | Day | Learn | Drill — do it without copy-pasting |
 |---|---|---|
 | 1 | `run`, `ps`, `logs`, `stop`, `rm` | Run nginx on 8080, watch its access log live, remove it |
-| 2 | `exec`, `-it`, `--rm`, env vars | Shell into alpine and `echo $MY_VAR` that you passed with `-e` |
+| 2 | `exec`, `-it`, `--rm`, env vars, restart policies | Shell into alpine and `echo $MY_VAR` that you passed with `-e`; watch a crash loop's `docker events` |
 | 3 | Images, tags, `pull`, `inspect` | Pull two versions of redis; diff their `history` output |
 | 4 | Your first Dockerfile | Containerise a 5-line script and run it |
 | 5 | Layer caching, `.dockerignore` | Reorder your COPY lines; time both builds |

@@ -87,6 +87,11 @@ Updated as I go - each line is something I have demonstrated in this repo.
   startup. They differ in one case only: a container stopped by hand. `always`
   overrides that decision on the next daemon restart, `unless-stopped` respects
   it - which makes it the sensible default for a service.
+- **Restart backoff has a real ceiling.** The delay before each retry doubles,
+  but caps at roughly 60 seconds - confirmed by streaming `docker events` on an
+  unlimited `on-failure` container for nearly an hour and watching the
+  start-die cycle hold at a steady ~60s the entire time. The doubling itself
+  finishes in about ten attempts, too fast to see by polling every few seconds.
 - **Why environment variables are not secrets.** The value lands in
   `.Config.Env`, readable by `docker inspect`, `docker exec env`, and
   `/proc/1/environ`. `--env-file` keeps it out of shell history and the host

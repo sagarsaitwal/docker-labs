@@ -74,6 +74,41 @@ docker start web
 docker restart web
 ```
 
+### Restart policies
+
+```text
+no               default - never auto-restart
+on-failure       retry only on a non-zero exit
+on-failure:N     retry up to N times, then give up for good
+always           restart on crash AND after a daemon restart, even if stopped by hand
+unless-stopped   like always, but respects a manual stop across a daemon restart
+```
+
+```bash
+docker run -d --restart unless-stopped --name api myapp:1.0
+```
+
+Backoff between retries starts small and doubles, but caps at roughly 60
+seconds - expect a steady one-per-minute cadence for a long-running crash loop,
+not a delay that visibly climbs.
+
+### Reconfigure a live container
+
+```bash
+docker update --restart unless-stopped -m 512m web
+```
+
+Live, no recreation - but the flag list is short and fixed:
+
+```text
+--restart, --cpus, --cpu-shares, --cpu-period, --cpu-quota, --cpuset-cpus,
+--cpuset-mems, --cpu-rt-period, --cpu-rt-runtime, -m/--memory,
+--memory-reservation, --memory-swap, --pids-limit, --blkio-weight
+```
+
+No `-e`/`--env`, no `-p`, no `--mount`, no image, no name. Anything that is
+part of a container's identity requires replacing it, not updating it.
+
 ### Remove container
 
 ```bash
@@ -342,6 +377,17 @@ docker system df
 docker system df -v
 ```
 
+### Watch live engine events
+
+```bash
+docker events
+docker events --filter container=web
+docker events --filter container=web --since 10m
+```
+
+Useful for watching a restart loop or a stop/start sequence happen in real
+time instead of polling `docker ps` repeatedly.
+
 ---
 
 ## 6) Port publishing and networking
@@ -525,6 +571,21 @@ docker run \
 ```bash
 docker run --env-file .env myapp:1.0
 ```
+
+An `--env-file` is not a shell script: no quote stripping, no `$VAR`
+expansion, no `export`. `QUOTED="hello"` in the file becomes the literal value
+`"hello"`, quotes included.
+
+### Precedence when the same variable is set more than one way
+
+```text
+image ENV  <  --env-file  <  -e
+```
+
+Confirmed with all three at once: an image built with `ENV V=from-image`,
+overridden by `--env-file` (`V=from-file`), overridden again by `-e V=from-flag`
+on the same command - the container sees `from-flag`. Later `-e` flags also
+beat earlier ones.
 
 ### Use secrets via Compose or external secret manager
 

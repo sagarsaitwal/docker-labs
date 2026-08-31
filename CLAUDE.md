@@ -34,38 +34,21 @@ finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 31 Aug 2026. Sagar's closing words: *"we will continue
-day 2 in morning."*
+**Last session ended:** 31 Aug 2026. Day 2 is fully wrapped - Part 1 and Part 2
+are both written up in `daily-summary/day-02-env-and-restart.md`. Part 2 covered
+three tasks: watching a crash-loop restart backoff with `docker events` over a
+long run (it caps at roughly 60 seconds rather than visibly doubling in real
+time - see section 6), chaining all three environment layers in one command
+(image `ENV` < `--env-file` < `-e`, using a purpose-built image), and reading
+`docker update --help` directly to confirm it has no environment-related flag
+at all.
 
-Day 2's core lesson is finished and written up. What was offered but **not yet
-run** is the extended practice, in the same style as Day 1's Part 2. Start there
-before moving on:
+Nothing is pending from Day 2. Start the next session at **Day 3 - images,
+tags, digests, registries**, using the plan already written in
+`daily-summary/day-03-images-tags-digests.md`.
 
-1. **Watch a crash loop back off in real time.**
-   ```bash
-   docker run -d --name loop --restart on-failure alpine sh -c 'sleep 1; exit 1'
-   docker events --filter container=loop &
-   watch -n 1 "docker inspect -f 'restarts={{.RestartCount}} status={{.State.Status}}' loop"
-   ```
-   Goal: see that retries are not a tight loop - the delay doubles. Compare
-   `on-failure` (unlimited) against `on-failure:3`.
-
-2. **Prove the environment precedence chain end to end.**
-   Build a case where an image `ENV`, an `--env-file` entry, and a `-e` flag all
-   set the same variable, and predict the winner before running it.
-   Expected: image `ENV` < `--env-file` < `-e`.
-
-3. **Reconfigure a live service with `docker update`.**
-   Change the restart policy and a memory limit on a running container without
-   recreating it, then try to change an environment variable the same way and
-   observe that no such option exists.
-
-Afterwards, append the results to `daily-summary/day-02-env-and-restart.md` as a
-"Part 2 - extended practice" section (mirroring `day-01-containers.md`), then
-move to **Day 3 - images, tags, digests, registries**.
-
-If Sagar actually meant Day 3, note that Day 2 is already complete and go
-straight there.
+If Sagar wants more Day 2 practice instead, that's fine too - just don't assume
+anything is still owed from the handoff above.
 
 ---
 
@@ -131,6 +114,15 @@ expectation, chase down why.
 **Sagar answers review questions in detail and is usually right.** Grade honestly,
 say when he is correct, and say plainly when a mistake in the question or lesson
 was yours.
+
+**Give tasks, don't run the lab exercises yourself.** Said directly on 31 Aug
+2026: *"I am learning the docker and you suppose to give me tasks, not complete
+by yourself."* For anything that is the actual point of a day's practice - the
+`docker run`/`inspect`/`update`/etc. commands the lesson is built around - write
+the commands, what to predict or observe, and let Sagar run them in his own
+Fedora terminal and report back. Diagnostic checks (confirming environment
+state, verifying a fix worked) are fine to run directly; the hands-on exercises
+are not.
 
 ---
 
@@ -206,6 +198,12 @@ Verified on this machine. Cite rather than re-test unless something changed.
   or name. Everything else needs replacement.
 - **`always` vs `unless-stopped`** differ in exactly one case: a container
   stopped by hand before a daemon restart. `always` restarts it anyway.
+- **Restart backoff caps at roughly 60 seconds.** It does start small and
+  double, but the ramp from ~100ms to the cap finishes in about ten attempts -
+  too fast to watch by polling every few seconds. Confirmed by streaming
+  `docker events` for an unlimited `on-failure` container for ~56 minutes: the
+  start-die cycle held at a steady ~59-61s the entire time. Don't expect to see
+  the doubling live; expect the steady ceiling.
 - **Only host ports must be unique**; container ports repeat freely because each
   container has its own network namespace.
 - **The `docker` group is root-equivalent** on the host.
@@ -270,5 +268,10 @@ Clone and continue:
 git clone https://github.com/sagarsaitwal/docker-labs.git
 cd docker-labs
 ```
+
+A fresh Fedora install does not have `git` yet - `sudo dnf install -y git`
+first if the clone fails with "command not found." Also worth creating `~/docker-lab` (`mkdir -p ~/docker-lab`, the lab working
+directory referenced throughout) and installing `jq` (`sudo dnf install -y jq`)
+ahead of Day 3, which reads a fair amount of JSON output.
 
 Then read section 2 for where the plan stands, and pick up at the next day.

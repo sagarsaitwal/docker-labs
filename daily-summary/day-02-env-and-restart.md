@@ -379,3 +379,180 @@ Images     : alpine, nginx:1.27, nginx:1.27-alpine
 Containers : cleaned up
 Next       : Day 3 - images, tags, digests, registries
 ```
+
+---
+
+# Part 2 — Extended practice (31 Aug 2026)
+
+Three additional tasks: watch the restart backoff directly instead of trusting
+the description of it, chain all three environment layers at once, and read
+`docker update`'s own flag list instead of inferring its scope.
+
+---
+
+## 8. Task 1 — crash loop backoff, observed with `docker events`
+
+```bash
+docker run -d --name loopA --restart on-failure   alpine sh -c 'sleep 1; exit 1'
+docker run -d --name loopB --restart on-failure:3 alpine sh -c 'sleep 1; exit 1'
+docker events --filter container=loopA --filter container=loopB
+```
+
+### Two mistakes on the way to `loopB`
+
+**Mistake 1 - omitted the image name:**
+
+```bash
+docker run -d --name loopB --restart on-failure:3 sh -c 'sleep1; exit 1'
+# Unable to find image 'sh:latest' locally
+# docker: Error response from daemon: pull access denied for sh, repository does not exist ...
+```
+
+Docker's grammar is `docker run [OPTIONS] IMAGE [COMMAND] [ARG...]`. With no
+image given, `sh` filled that slot instead, so Docker tried to pull a Hub image
+literally named `sh`. Same class of mistake as Day 1's `docker -it web sh` - a
+positional argument landing in the wrong place - just a missing argument this
+time instead of a misplaced flag.
+
+**Mistake 2 - `sleep1` instead of `sleep 1`** (missing space), never corrected
+in the real run:
+
+```bash
+docker run -d --name loopB --restart on-failure:3 alpine sh -c 'sleep1; exit 1'
+```
+
+`sleep1` is not a command, so the shell fails to find it - but `sh -c 'a; b'`
+does not stop at a failing `a` unless `set -e` is used, so `exit 1` ran anyway.
+`loopB` still showed `Exited (1)`, just after milliseconds instead of the
+intended 1 second. Right exit code, wrong reason - the kind of thing that looks
+like a passing test for the wrong reason.
+
+### What was observed
+
+`loopB` (`on-failure:3`) exited once and never restarted again - `docker ps -a`
+showed `Exited (1)` and it stayed there, confirming the retry cap gives up for
+good once exhausted (matches the Block C finding from Part 1).
+
+`loopA` (`on-failure`, unlimited) kept restarting for the full ~56 minutes the
+`docker events` stream was left running. Every cycle:
+
+```text
+16:01:06  start
+16:01:08  die     (execDuration=1)
+16:02:07  start    <- ~59s later
+16:02:09  die
+16:03:09  start    <- ~60s later
+16:03:10  die
+...
+16:57:14  start    <- still ~60s later, nearly an hour in
+16:57:15  die
+```
+
+### Refinement to the plan's assumption
+
+The plan expected to "watch the delay double." What actually showed up is a
+**steady ~60-second interval**, constant from the very first captured retry to
+the last, with no visible climb. This is not a contradiction of exponential
+backoff - it is a consequence of it. Docker's backoff starts near ~100ms and
+doubles each attempt, so the ramp from ~100ms up to the ~60-second cap takes
+only about ten attempts, all completing within roughly a minute of wall time,
+long before a human polling every few seconds would catch the climb. Once
+capped, the interval holds at ~60s for as long as the crash loop continues.
+
+**The corrected takeaway:** retries are not a tight loop, but the doubling
+itself is too fast to observe by eye. What you can actually verify on any
+normal timescale is the steady-state ceiling, not the ramp.
+
+---
+
+## 9. Task 2 — the full three-layer environment precedence chain
+
+Block C and finding 3.2 already measured `--env-file` against `-e`. This
+closes the gap by adding a real image-level `ENV` into the same test, built
+directly rather than borrowed from an existing image:
+
+```bash
+mkdir -p ~/docker-lab/precedence && cd ~/docker-lab/precedence
+cat > Dockerfile <<'EOF'
+FROM alpine
+ENV V=from-image
+EOF
+docker build -t precedence-test .
+printf 'V=from-file\n' > p.env
+
+docker run --rm precedence-test printenv V                                   # from-image
+docker run --rm --env-file p.env precedence-test printenv V                  # from-file
+docker run --rm --env-file p.env -e V=from-flag precedence-test printenv V   # from-flag
+```
+
+Result: `from-image` -> `from-file` -> `from-flag`, exactly as predicted.
+**Confirmed, three layers in one command:** image `ENV` < `--env-file` < `-e`.
+
+---
+
+## 10. Task 3 — `docker update`'s boundary, read from its own `--help`
+
+```bash
+docker run -d --name svc --restart no -m 200m nginx:1.27
+docker inspect -f '{{.HostConfig.RestartPolicy.Name}} {{.HostConfig.Memory}}' svc
+# no 209715200
+
+docker update --restart unless-stopped -m 100m svc
+docker inspect -f '{{.HostConfig.RestartPolicy.Name}} {{.HostConfig.Memory}}' svc
+# unless-stopped 104857600
+```
+
+Same container (`svc`, no recreation) - restart policy and memory limit both
+changed live. Then, instead of assuming environment variables are excluded,
+the full flag list was read directly:
+
+```bash
+docker update --help
+```
+
+```text
+--blkio-weight, --cpu-period, --cpu-quota, --cpu-rt-period, --cpu-rt-runtime,
+-c/--cpu-shares, --cpus, --cpuset-cpus, --cpuset-mems, -m/--memory,
+--memory-reservation, --memory-swap, --pids-limit, --restart
+```
+
+No `-e`, `--env`, `--env-file`, `-p`, `--mount`, `--name`, or image flag
+exists. This is direct confirmation, not inference: `docker update`'s entire
+surface is CPU/memory/pids/blkio limits plus the restart policy. Nothing about
+a container's identity - environment included - is reachable this way.
+
+---
+
+## 11. Corrections to earlier expectations
+
+| Earlier belief | Corrected |
+|---|---|
+| "Watch the restart delay double in real time" | The doubling happens in the first ~10 attempts, all within about a minute - too fast to see by polling every few seconds. What you actually observe is a steady ~60s ceiling once it's capped. |
+| "`--env-file` beats image `ENV`, `-e` beats `--env-file`" (measured separately) | Now confirmed as one three-layer chain in a single command, using a purpose-built image rather than inferring from two pairwise tests. |
+| "`docker update` doesn't touch environment" (stated as a rule) | Now verified by reading `docker update --help` directly - the flag doesn't exist, not just "wasn't tried." |
+
+---
+
+## 12. Added to "keep in mind"
+
+- **The image name is a required positional argument to `docker run`.** Omit
+  it and whatever comes next fills that slot instead, producing a confusing
+  "pull access denied" error for something that was never meant to be an image.
+- **`sh -c 'a; b'` does not stop at a failing `a`.** Without `set -e`, the
+  script's exit code is whichever command runs last - a passing exit code can
+  hide a failed command earlier in the same `-c` string.
+- **Docker's restart backoff caps at roughly one minute.** Expect a steady
+  one-per-minute cadence for a long-running crash loop, not a delay you can
+  watch grow - the exponential ramp finishes in well under a minute.
+- **When unsure whether a command supports something, read `--help` before
+  concluding it doesn't.** Confirmed absence beats assumed absence.
+
+---
+
+## 13. Commands added to the toolkit
+
+```bash
+docker events --filter container=<name>              # live stream of container lifecycle events
+docker build -t <tag> .                               # build a throwaway image to control image-level ENV
+docker update --help                                  # the definitive list of what can change on a live container
+```
