@@ -172,7 +172,59 @@ hygiene, but the value still lands in `.Config.Env`.
 
 ---
 
-## Day 3 — _next up_
+## Day 3 — Images, tags, digests
+
+A tag is a pointer, not a thing. That single sentence covers most of today.
+
+```bash
+docker tag nginx:1.27 my-nginx:experiment
+docker image ls          # two names, ONE image ID, no extra disk
+docker image rm my-nginx:experiment
+# Untagged: ...    <- not "Deleted:", because other names still point there
+```
+
+`nginx:1.27` and `nginx:1.27.5` currently resolve to the same ID. They will not
+forever: `1.27` moves when `1.27.6` ships, `1.27.5` never does. That is the real
+argument for pinning — a rebuild weeks later can produce a different image with
+nothing in git to explain it.
+
+**Layer sharing, seen rather than read about.** Pulling `nginx:1.27-perl` printed
+`Already exists` for nearly every layer, downloading only the Perl additions.
+
+**The sizes in `docker image ls` do not add up, and shouldn't.**
+
+```text
+image ls apparent total   705.5MB
+system df actual disk     426.7MB
+```
+
+The 278.8MB gap is the Debian base shared by `1.27` and `1.27-perl`. `image ls`
+bills it to both images; the disk stores it once. `docker system df -v` splits
+it properly into SHARED and UNIQUE columns. Trust `system df`.
+
+That also explained a number that looked wrong: `RECLAIMABLE` read 147.3MB with
+no containers running. Summing the UNIQUE column gives 147.33MB exactly —
+reclaimable counts only bytes unique to an image, since shared layers stay for
+whoever else needs them.
+
+**`nginx:1.27` is not an image.** It is a manifest list indexing amd64, arm/v5,
+arm/v7, arm64/v8, 386, mips64le, ppc64le and s390x. Docker matched my host
+(`x86_64 / linux`) and pulled amd64. The `unknown/unknown` entries in the list
+are attestation manifests — build provenance and SBOM — not broken platforms.
+
+**Checked rather than assumed:** the EXTRA column in `docker image ls` is
+undocumented in `--help`, so I tested it — started a container, `U` appeared
+next to that image; removed the container, `U` vanished. `U` means *in Use*, and
+an image without it is what `docker image prune -a` will delete.
+
+Also worth recording for other machines: here the image ID *is* the manifest
+digest, because this engine uses the containerd image store. On the older
+storage driver the ID is a separate config hash and will not match
+`RepoDigests`.
+
+---
+
+## Day 4 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

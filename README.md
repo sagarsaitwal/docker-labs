@@ -38,7 +38,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 0 | Engine install, daemon, socket permissions | **Complete** | [journal](JOURNAL.md#day-0--environment-setup-fedora-44-on-wsl2) &middot; [notes](daily-summary/day-00-environment-setup.md) |
 | 1 | Containers: lifecycle, ports, exit codes, signals | **Complete** | [journal](JOURNAL.md#day-1--containers-run-inspect-exec-destroy) &middot; [notes](daily-summary/day-01-containers.md) |
 | 2 | Environment variables, `--rm`, restart policies | **Complete** | [journal](JOURNAL.md#day-2--configuration-from-outside-the-image) &middot; [notes](daily-summary/day-02-env-and-restart.md) |
-| 3 | Images, tags, digests, registries | Not started | |
+| 3 | Images, tags, digests, registries | **Complete** | [journal](JOURNAL.md#day-3--images-tags-digests) &middot; [notes](daily-summary/day-03-images-tags-digests.md) |
 | 4 | Writing a first Dockerfile | Not started | |
 | 5 | Layer caching and `.dockerignore` | Not started | |
 | 6 | Named volumes and data persistence | Not started | |
@@ -68,6 +68,19 @@ Updated as I go - each line is something I have demonstrated in this repo.
   Persistence beyond that requires a volume or a bind mount.
 - **Tag versus digest.** `nginx:1.27` is a movable label; `sha256:6784fb08...` is
   the immutable identity. Only one of the two makes a deployment reproducible.
+  A tag is a pointer, not a thing: `docker tag` creates a second name for the
+  same image ID and costs no disk, and `docker image rm` prints `Untagged:`
+  rather than `Deleted:` until the last reference goes.
+- **Why image sizes never add up.** `docker image ls` bills every shared layer
+  to each image that uses it. On my machine three nginx images appear to total
+  705.5MB while the disk holds 426.7MB - the 278.8MB gap is one Debian base
+  shared by two of them. `docker system df -v` splits it into SHARED and UNIQUE,
+  and RECLAIMABLE is the sum of the UNIQUE column, because shared layers cannot
+  be freed while another image needs them.
+- **One tag is many images.** `nginx:1.27` is a *manifest list* indexing amd64,
+  arm64, s390x and others; Docker picks by host architecture, which is why the
+  same command works on a laptop and an ARM server. The `unknown/unknown`
+  entries in it are attestation manifests, not broken platforms.
 - **Why `EXPOSE` publishes nothing.** It is metadata. `-p host:container` is what
   creates the mapping.
 - **Why only host ports must be unique.** Each container has its own network
@@ -115,7 +128,8 @@ Updated as I go - each line is something I have demonstrated in this repo.
 │   ├── day-00-environment-setup.md   Engine, daemon, socket permissions
 │   ├── day-01-containers.md          Lifecycle, ports, exit codes, signals
 │   ├── day-02-env-and-restart.md     Runtime config, restart policies
-│   └── day-03 ... day-14             Prepared: plan, commands, drill
+│   ├── day-03-images-tags-digests.md Tags, digests, layers, manifest lists
+│   └── day-04 ... day-14             Prepared: plan, commands, drill
 ├── examples/
 │   └── first-stack/      Minimal correct Compose stack (nginx + Postgres)
 ├── projects/             Three builds of increasing difficulty

@@ -26,29 +26,35 @@ has been covered yet.
 | 0 | Engine install, daemon, socket permissions | Complete |
 | 1 | Containers: lifecycle, ports, exit codes, signals | Complete |
 | 2 | Environment variables, `--rm`, restart policies | Complete |
-| 3 | Images, tags, digests, registries | **Next** |
-| 4-14 | See the README progress table | Not started |
+| 3 | Images, tags, digests, registries | Complete |
+| 4 | Writing a first Dockerfile | **Next** |
+| 5-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 31 Aug 2026. Day 2 is fully wrapped - Part 1 and Part 2
-are both written up in `daily-summary/day-02-env-and-restart.md`. Part 2 covered
-three tasks: watching a crash-loop restart backoff with `docker events` over a
-long run (it caps at roughly 60 seconds rather than visibly doubling in real
-time - see section 6), chaining all three environment layers in one command
-(image `ENV` < `--env-file` < `-e`, using a purpose-built image), and reading
-`docker update --help` directly to confirm it has no environment-related flag
-at all.
-
-Nothing is pending from Day 2. Start the next session at **Day 3 - images,
-tags, digests, registries**, using the plan already written in
+**Last session ended:** 1 Sep 2026. Day 3 is complete and written up in
 `daily-summary/day-03-images-tags-digests.md`.
 
-If Sagar wants more Day 2 practice instead, that's fine too - just don't assume
-anything is still owed from the handoff above.
+One difference from Days 1-2 worth knowing: Sagar did **not** answer the Day 3
+review questions solo. He read them, said the explanation had not landed, and
+asked for them to be worked through. That is recorded honestly at the top of the
+notes file. Day 3 is denser than it looks - do not assume the same
+answer-then-grade rhythm will fit every day.
+
+Nothing is pending. Start at **Day 4 - writing a first Dockerfile**, using the
+plan in `daily-summary/day-04-first-dockerfile.md`.
+
+Day 4 is the first day that produces a `Dockerfile`, which means CI stops being
+a no-op: the `dockerfile-lint` and `build-images` jobs will begin running
+hadolint and a real build on every push. Expect the first red build and treat
+fixing it as part of the lesson.
+
+Leftover images from Day 3: `nginx:1.27` (also tagged `1.27.5` and referenced by
+digest), `nginx:1.27-alpine`, `nginx:1.27-perl`. About 426.7MB. Clear them with
+`docker image prune -a` if Day 4 wants a clean slate.
 
 ---
 
@@ -206,6 +212,19 @@ Verified on this machine. Cite rather than re-test unless something changed.
   the doubling live; expect the steady ceiling.
 - **Only host ports must be unique**; container ports repeat freely because each
   container has its own network namespace.
+- **A tag is a pointer.** `docker tag` costs no disk; `docker image rm` prints
+  `Untagged:` until the last reference goes, and only then `Deleted:`.
+- **`docker image ls` is not disk accounting.** It bills shared layers to every
+  image. `docker system df -v` gives SHARED/UNIQUE, and RECLAIMABLE is the sum
+  of UNIQUE because shared layers stay for whoever else needs them.
+- **`U` in the EXTRA column of `docker image ls` means "in Use"** by a container.
+  Tested directly; it is undocumented in `--help`. No `U` means
+  `docker image prune -a` will delete it.
+- **On this engine the image ID IS the manifest digest** (containerd image
+  store). Do not claim ID and digest always differ - on the older storage driver
+  they do, here they do not.
+- **`unknown/unknown` entries in a manifest list are attestation manifests**
+  (BuildKit provenance and SBOM), not broken platforms.
 - **The `docker` group is root-equivalent** on the host.
 
 ---
