@@ -219,10 +219,16 @@ Identity   Sagar Saitwal <sagar.saitwal@outlook.com>
            Must match the GitHub account, or commits miss the contribution graph.
 ```
 
-- Commit messages: a short subject, then a body explaining *why*. End with
-  `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
+- Commit messages: a short subject, then a body explaining *why*. **No
+  `Co-Authored-By: Claude` trailer.** This repo's commits should read as
+  Sagar's own work - on 31 Aug 2026 the whole history was rewritten
+  (`git filter-branch --msg-filter`, then force-pushed) specifically to strip
+  that line out, because it made the repo look AI-authored rather than
+  AI-assisted. Do not reintroduce it.
 - **Never `--amend` a commit that has already been pushed.** This has bitten once
-  already; recovery was `git reset --hard origin/main`.
+  already; recovery was `git reset --hard origin/main`. (The one-time history
+  rewrite above is a deliberate exception, done with explicit approval - it is
+  not a precedent for routine amending.)
 - Ask before pushing unless Sagar has said to push.
 - `.gitattributes` enforces `eol=lf`. Do not weaken it - the repo is edited on
   Windows and its scripts run inside Linux containers.
