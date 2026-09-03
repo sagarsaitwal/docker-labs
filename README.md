@@ -39,7 +39,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 1 | Containers: lifecycle, ports, exit codes, signals | **Complete** | [journal](JOURNAL.md#day-1--containers-run-inspect-exec-destroy) &middot; [notes](daily-summary/day-01-containers.md) |
 | 2 | Environment variables, `--rm`, restart policies | **Complete** | [journal](JOURNAL.md#day-2--configuration-from-outside-the-image) &middot; [notes](daily-summary/day-02-env-and-restart.md) |
 | 3 | Images, tags, digests, registries | **Complete** | [journal](JOURNAL.md#day-3--images-tags-digests) &middot; [notes](daily-summary/day-03-images-tags-digests.md) |
-| 4 | Writing a first Dockerfile | Not started | |
+| 4 | Writing a first Dockerfile | **Complete** | [journal](JOURNAL.md#day-4--writing-a-first-dockerfile) &middot; [notes](daily-summary/day-04-first-dockerfile.md) |
 | 5 | Layer caching and `.dockerignore` | Not started | |
 | 6 | Named volumes and data persistence | Not started | |
 | 7 | Bind mounts and live-reload development | Not started | |
@@ -109,6 +109,22 @@ Updated as I go - each line is something I have demonstrated in this repo.
   `.Config.Env`, readable by `docker inspect`, `docker exec env`, and
   `/proc/1/environ`. `--env-file` keeps it out of shell history and the host
   process list, but does not hide it from anyone in the `docker` group.
+- **Why a slow `docker stop` can happen even with exec-form `CMD`.** A process
+  at PID 1 inside a container does not get normal signal defaults - an
+  unhandled `SIGTERM` is *ignored*, not fatal, unlike everywhere else. Built the
+  same app as `CMD ["python","app.py"]` and `CMD python app.py`; both took the
+  full ~10s grace period and were force-killed (exit 137), because neither
+  Python nor `sh` had a handler and PID 1 status made the signal a no-op either
+  way. `docker run --init` fixed it - `tini` becomes PID 1, actually handles
+  `SIGTERM`, and forwards it to Python, now a normal child: stop dropped to
+  0.4s with exit 143 (properly signal-terminated) instead of 137.
+- **Why `.dockerignore` can look like it does nothing.** Modern BuildKit only
+  transfers files a `COPY`/`ADD` instruction actually names, so a narrow
+  `COPY app.py .` skipped a 50MB test file with or without `.dockerignore` -
+  28B transferred either way. Rebuilding with `COPY . .` isolated the real
+  effect: 52.44MB without the ignore file, 254B with it. The file matters most
+  exactly when `COPY` is broad, and should never be skipped just because
+  today's `COPY` happens to be narrow.
 - **Why the `docker` group matters.** The daemon socket is `root:docker` mode
   `srw-rw----`, so group membership - not sudo - is what grants access, and it
   is effectively root-equivalent on the host.
@@ -129,9 +145,11 @@ Updated as I go - each line is something I have demonstrated in this repo.
 │   ├── day-01-containers.md          Lifecycle, ports, exit codes, signals
 │   ├── day-02-env-and-restart.md     Runtime config, restart policies
 │   ├── day-03-images-tags-digests.md Tags, digests, layers, manifest lists
-│   └── day-04 ... day-14             Prepared: plan, commands, drill
+│   ├── day-04-first-dockerfile.md    PID 1 signals, build context, layers
+│   └── day-05 ... day-14             Prepared: plan, commands, drill
 ├── examples/
-│   └── first-stack/      Minimal correct Compose stack (nginx + Postgres)
+│   ├── first-stack/      Minimal correct Compose stack (nginx + Postgres)
+│   └── day-04-hello-app/ First Dockerfile - PID 1 signal handling, --init
 ├── projects/             Three builds of increasing difficulty
 │   ├── 01-node-postgres/     Compose, service DNS, volumes, healthchecks
 │   ├── 02-python-redis/      Non-root, caching, resource limits

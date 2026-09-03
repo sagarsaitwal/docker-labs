@@ -224,7 +224,62 @@ storage driver the ID is a separate config hash and will not match
 
 ---
 
-## Day 4 — _next up_
+## Day 4 — Writing a first Dockerfile
+
+Built and ran the first Dockerfile in this repo — a one-file Python HTTP
+server. `docker image history` confirmed the prediction cleanly: `FROM`,
+`WORKDIR`, `COPY` write real layers; `EXPOSE` and `CMD` are 0B metadata.
+
+The rest of the day didn't go how the lesson plan expected, in a good way.
+
+**`.dockerignore` first looked like it did nothing.** Removing it made zero
+difference to the build context size — 28B either way, 50MB test file never
+transferred. Turned out the Dockerfile only had `COPY app.py .`, and modern
+BuildKit only sends files a `COPY`/`ADD` actually names — `.dockerignore` had
+nothing to prove either way. Rebuilt with `COPY . .` instead and the real
+effect appeared: 52.44MB without the ignore file, 254B with it. Lesson:
+`.dockerignore` matters most exactly when `COPY` is broad, and should never be
+skipped just because today's `COPY` happens to be narrow — the day someone
+widens it, an untracked `.dockerignore` bites.
+
+**The bigger finding: exec-form `CMD` didn't fix the signal problem I expected
+it to fix.** Built the same app two ways — `CMD ["python", "app.py"]` and
+`CMD python app.py` — expecting exec form (Python as PID 1) to stop fast under
+`docker stop`, since it receives `SIGTERM` directly. Both took the full ~10s
+grace period and got force-killed (exit 137). Root cause, checked rather than
+guessed: **a process running as PID 1 inside a container doesn't get the
+normal default signal behavior.** An unhandled signal is *ignored*, not fatal,
+for PID 1 specifically — the only exceptions are SIGKILL and SIGSTOP. My
+`app.py` never registered a `SIGTERM` handler, so whether Python or `sh` sat
+at PID 1, the signal did nothing either way.
+
+Verified the actual fix rather than just the diagnosis:
+
+```bash
+docker run -d --init --name d-exec-init -p 8083:8080 day4-app:exec
+time docker stop d-exec-init
+```
+
+```text
+without --init:  10.500s   exit 137 (SIGKILL)
+with --init:       0.427s  exit 143 (SIGTERM)
+```
+
+`--init` puts `tini` at PID 1, which actually handles `SIGTERM` and forwards
+it — and now Python isn't PID 1 anymore, so ordinary default signal handling
+applies to it as a child. 25x faster stop, and the exit code itself changes
+character: force-killed versus cleanly terminated. This is the real reason
+production images run an init process instead of the app directly as PID 1 —
+not a style convention.
+
+`examples/day-04-hello-app/` is now in the repo — the first Dockerfile
+`docker-labs` has ever contained. hadolint passed clean on it before the
+commit that will flip CI's `dockerfile-lint` and `build-images` jobs from a
+no-op to doing real work for the first time.
+
+---
+
+## Day 5 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

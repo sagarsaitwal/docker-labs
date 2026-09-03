@@ -27,34 +27,48 @@ has been covered yet.
 | 1 | Containers: lifecycle, ports, exit codes, signals | Complete |
 | 2 | Environment variables, `--rm`, restart policies | Complete |
 | 3 | Images, tags, digests, registries | Complete |
-| 4 | Writing a first Dockerfile | **Next** |
-| 5-14 | See the README progress table | Not started |
+| 4 | Writing a first Dockerfile | Complete |
+| 5 | Layer caching and `.dockerignore` | **Next** |
+| 6-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 1 Sep 2026. Day 3 is complete and written up in
-`daily-summary/day-03-images-tags-digests.md`.
+**Last session ended:** 4 Sep 2026. Day 4 is complete and written up in
+`daily-summary/day-04-first-dockerfile.md`. `examples/day-04-hello-app/` is the
+first Dockerfile this repo has ever contained, and the commit adding it is
+expected to flip CI's `dockerfile-lint` and `build-images` jobs from a no-op to
+doing real work for the first time - verify that run went green after pushing
+(preflighted locally with hadolint 2.12.0-alpine first, clean, exit 0, so it
+should pass, but confirm rather than assume).
 
-One difference from Days 1-2 worth knowing: Sagar did **not** answer the Day 3
-review questions solo. He read them, said the explanation had not landed, and
-asked for them to be worked through. That is recorded honestly at the top of the
-notes file. Day 3 is denser than it looks - do not assume the same
-answer-then-grade rhythm will fit every day.
+Day 4 produced two findings that overturned the lesson plan's own predictions -
+both worth citing directly rather than re-deriving:
 
-Nothing is pending. Start at **Day 4 - writing a first Dockerfile**, using the
-plan in `daily-summary/day-04-first-dockerfile.md`.
+- **A process at PID 1 in a container does not get normal signal defaults.**
+  Built the same app as exec-form and shell-form `CMD`, expecting exec form to
+  stop fast under `docker stop`. Both took the full ~10s grace period and were
+  force-killed (exit 137) - PID 1 status makes an unhandled `SIGTERM` *ignored*,
+  not fatal, regardless of which form wraps it. `docker run --init` (tini as
+  PID 1) fixed it: stop dropped to 0.4s with exit 143. See section 6 below.
+- **`.dockerignore` looked like it did nothing** until the variable was
+  isolated - BuildKit only transfers files a `COPY` actually names, so a narrow
+  `COPY app.py .` skipped a 50MB test file whether `.dockerignore` existed or
+  not. Rebuilding with `COPY . .` showed the real effect: 52.44MB vs 254B.
 
-Day 4 is the first day that produces a `Dockerfile`, which means CI stops being
-a no-op: the `dockerfile-lint` and `build-images` jobs will begin running
-hadolint and a real build on every push. Expect the first red build and treat
-fixing it as part of the lesson.
+Both were chased down empirically after the first result contradicted
+expectation, rather than accepted or explained away - keep that standard for
+Day 5, which is exactly the topic (layer caching, `.dockerignore` ordering)
+these findings feed into directly.
 
-Leftover images from Day 3: `nginx:1.27` (also tagged `1.27.5` and referenced by
-digest), `nginx:1.27-alpine`, `nginx:1.27-perl`. About 426.7MB. Clear them with
-`docker image prune -a` if Day 4 wants a clean slate.
+Nothing is pending. Start at **Day 5 - layer caching and `.dockerignore`**,
+using the plan in `daily-summary/day-05-layer-caching.md`. Given the Day 4
+`.dockerignore` finding, it's worth having Sagar predict the BuildKit
+selective-transfer behavior *before* running the drill, rather than presenting
+it as new information.
+
 
 ---
 
@@ -225,6 +239,18 @@ Verified on this machine. Cite rather than re-test unless something changed.
   they do, here they do not.
 - **`unknown/unknown` entries in a manifest list are attestation manifests**
   (BuildKit provenance and SBOM), not broken platforms.
+- **PID 1 inside a container does not get normal signal defaults.** An
+  unhandled `SIGTERM` is *ignored* for PID 1 specifically (except SIGKILL/
+  SIGSTOP), not fatal like everywhere else. Exec-form `CMD` alone does not fix
+  this - both exec-form and shell-form `CMD` took the full ~10s grace period
+  and got force-killed (exit 137) with no `SIGTERM` handler in the app. Only
+  `docker run --init` (tini as PID 1, which does handle it and forwards to the
+  now-non-PID-1 child) fixed it - 0.4s stop, exit 143.
+- **`.dockerignore`'s effect depends on how broad `COPY` is.** BuildKit only
+  transfers files a `COPY`/`ADD` actually names, so a narrow `COPY app.py .`
+  showed zero difference with `.dockerignore` present or absent (28B either
+  way). Only `COPY . .` exposed the real effect (52.44MB vs 254B). Never treat
+  "no visible difference" as proof `.dockerignore` isn't needed.
 - **The `docker` group is root-equivalent** on the host.
 
 ---

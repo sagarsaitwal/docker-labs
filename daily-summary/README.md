@@ -4,7 +4,7 @@ The long-form working notebook for this repository. `../JOURNAL.md` is the
 condensed narrative of the same journey; these files carry the full detail -
 every command, every mistake, and the reasoning behind each fix.
 
-One file per day. Days 0-3 are written up; days 4-14 are prepared templates
+One file per day. Days 0-4 are written up; days 5-14 are prepared templates
 with the plan, the commands to practise, and a drill — fill in the bottom four
 sections as you go.
 
@@ -14,7 +14,7 @@ sections as you go.
 | [day-01](day-01-containers.md) | Containers: run, inspect, exec, destroy | Complete |
 | [day-02](day-02-env-and-restart.md) | Env variables, `--rm`, restart policies | Complete |
 | [day-03](day-03-images-tags-digests.md) | Images, tags, digests | Complete |
-| [day-04](day-04-first-dockerfile.md) | Writing a first Dockerfile | Not started |
+| [day-04](day-04-first-dockerfile.md) | Writing a first Dockerfile | Complete |
 | [day-05](day-05-layer-caching.md) | Layer caching, `.dockerignore` | Not started |
 | [day-06](day-06-volumes.md) | Named volumes, persistence | Not started |
 | [day-07](day-07-bind-mounts.md) | Bind mounts, live reload | Not started |
