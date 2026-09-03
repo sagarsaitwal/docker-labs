@@ -300,3 +300,42 @@ directory referenced throughout) and installing `jq` (`sudo dnf install -y jq`)
 ahead of Day 3, which reads a fair amount of JSON output.
 
 Then read section 2 for where the plan stands, and pick up at the next day.
+
+---
+
+## 9. External reference material
+
+**KodeKloud example voting app** - a real multi-service reference project
+(Python `vote` app -> Redis -> .NET `worker` -> Postgres -> Node.js `result`
+app), analyzed in a session on 3 Sep 2026. Sagar wants it kept in mind for
+comparison once the curriculum reaches the days it actually previews:
+
+```text
+Clone:  https://github.com/kodekloudhub/example-voting-app.git
+```
+
+- `vote/Dockerfile` - a 3-stage build (base/dev/final) - Day 12 (multi-stage builds)
+- `result/Dockerfile` - uses `tini` as PID 1 to reap zombies and forward
+  signals properly - ties back to the Day 1 signal-handling lesson
+- `worker/Dockerfile` - `BUILDPLATFORM`/`TARGETPLATFORM` cross-build args -
+  post-Day-14 buildx/multi-arch territory
+- `docker-compose.yml` - `depends_on: condition: service_healthy`, Compose
+  `profiles`, a `front-tier`/`back-tier` network split - Day 8-10 material
+
+It is Docker/KodeKloud's own sample (ships its own `LICENSE`/`MAINTAINERS`),
+not Sagar's work - do not merge it into `docker-labs`. It currently lives at
+`~/KodekloudSample` in the FedoraLinux-44 WSL distro on this machine; clone it
+fresh on any other machine rather than expecting it to travel with
+`docker-labs` itself:
+
+```bash
+git clone https://github.com/kodekloudhub/example-voting-app.git ~/KodekloudSample
+```
+
+Sagar's plan is to also push a copy to his own GitHub account from another
+device, as a separate repo, for safekeeping - not merged into `docker-labs`.
+
+Don't pull concepts from it into an explanation before the day that actually
+introduces them (see section 1's rule on not assuming a later day's concept is
+known yet) - it's a "here's how a real project does it" comparison for Days 9,
+10, and 12, not early reference material.
