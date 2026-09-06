@@ -42,7 +42,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 4 | Writing a first Dockerfile | **Complete** | [journal](JOURNAL.md#day-4--writing-a-first-dockerfile) &middot; [notes](daily-summary/day-04-first-dockerfile.md) |
 | 5 | Layer caching and `.dockerignore` | **Complete** | [journal](JOURNAL.md#day-5--layer-caching-and-dockerignore) &middot; [notes](daily-summary/day-05-layer-caching.md) |
 | 6 | Named volumes and data persistence | **Complete** | [journal](JOURNAL.md#day-6--named-volumes-and-data-persistence) &middot; [notes](daily-summary/day-06-volumes.md) |
-| 7 | Bind mounts and live-reload development | Not started | |
+| 7 | Bind mounts and live-reload development | In progress | [notes](daily-summary/day-07-bind-mounts.md) |
 | 8 | Networks and container DNS | Not started | |
 | 9 | Docker Compose | Not started | [example](examples/first-stack/) |
 | 10 | Multi-service stack with healthchecks | Not started | [project 01](projects/01-node-postgres/) |

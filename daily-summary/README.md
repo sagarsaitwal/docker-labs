@@ -17,7 +17,7 @@ sections as you go.
 | [day-04](day-04-first-dockerfile.md) | Writing a first Dockerfile | Complete |
 | [day-05](day-05-layer-caching.md) | Layer caching, `.dockerignore` | Complete |
 | [day-06](day-06-volumes.md) | Named volumes, persistence | Complete |
-| [day-07](day-07-bind-mounts.md) | Bind mounts, live reload | Not started |
+| [day-07](day-07-bind-mounts.md) | Bind mounts, live reload | In progress |
 | [day-08](day-08-networks-dns.md) | Networks and container DNS | Not started |
 | [day-09](day-09-compose.md) | Docker Compose | Not started |
 | [day-10](day-10-multiservice-healthcheck.md) | Multi-service stack, healthchecks | Not started |

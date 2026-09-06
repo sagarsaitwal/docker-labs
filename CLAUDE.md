@@ -30,7 +30,7 @@ has been covered yet.
 | 4 | Writing a first Dockerfile | Complete |
 | 5 | Layer caching and `.dockerignore` | Complete |
 | 6 | Named volumes and data persistence | Complete |
-| 7 | Bind mounts and live-reload development | **Next** |
+| 7 | Bind mounts and live-reload development | **In progress** |
 | 8-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
@@ -38,32 +38,31 @@ finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 6 Sep 2026. Day 6 is complete and written up in
-`daily-summary/day-06-volumes.md` - no repo/`examples/` changes, all
-experiments ran in `~/docker-lab/day6`.
+**Last session ended:** 7 Sep 2026, mid-Day-7, cut short by Sagar's mobile
+data recharge expiring rather than anything Docker-related. Day 6 is
+complete and pushed. Day 7 is **in progress, not started hands-on yet** -
+`daily-summary/day-07-bind-mounts.md` has the concept walkthrough and Block A
+task, but no real command has actually been run or reported back. Do not
+treat anything in that file as verified; it's plan only.
 
-Day 6 confirmed a container's writable layer and a named volume have
-genuinely independent lifecycles: wrote a row to Postgres via `-v
-pgdata:/var/lib/postgresql/data`, `docker rm -f`'d the container entirely,
-recreated it against the same volume - the row survived (the recreated
-container's own `CREATE TABLE demo` even failed with "already exists" before
-a `SELECT` was run). Only `docker volume rm pgdata` on the volume itself
-actually destroyed the data. A typo'd volume name (`pgdatta`) failed
-silently - no error, just a fresh empty volume mounted without complaint.
+**Resume Day 7 at Block A**, in `~/docker-lab/day7`: a one-route Flask app,
+run with
+`docker run --rm -it -p 5000:5000 -v "$PWD":/app -w /app python:3.12-slim sh -c "pip install flask -q && flask --app app run --host=0.0.0.0 --debug"`,
+then edit `app.py` on the host and `curl localhost:5000` again without
+touching Docker at all, to see whether the bind mount alone is enough or
+whether `--debug`'s reloader is the piece that makes the running process
+notice. This needs working internet (`pip install flask`, and possibly the
+base image pull) - confirm connectivity is back before assuming this will
+run cleanly.
 
-One open item, not chased down: `docker inspect -f '{{json .Mounts}}'` showed
-`"Mode":"z"` on a plain named-volume mount that never had `:z` typed on the
-`-v` flag - normally an SELinux relabel option, and SELinux is disabled on
-this machine per section 3. Noted in `daily-summary/day-06-volumes.md`
-section 3.3; worth a closer look if it comes up again, not urgent.
-
-Day 5's still-open gap remains open too: Block B's `.dockerignore`-protects-
-`Dockerfile.slow` failure-and-fix case was never run (see
-`daily-summary/day-05-layer-caching.md` section 7 for the exact commands).
-Offer it if there's a natural moment, otherwise it's fine to leave queued.
-
-Start at **Day 7 - bind mounts and live-reload development**, using the plan
-in `daily-summary/day-07-bind-mounts.md`.
+Two smaller open items still queued from earlier days, worth offering if a
+natural moment comes up, otherwise fine to leave be:
+- Day 6: `"Mode":"z"` on a plain named-volume mount despite SELinux being
+  disabled on this machine - unexplained, see `daily-summary/day-06-volumes.md`
+  section 3.3.
+- Day 5: Block B's `.dockerignore`-protects-`Dockerfile.slow` failure-and-fix
+  case was never run - exact commands in
+  `daily-summary/day-05-layer-caching.md` section 7.
 
 
 ---
