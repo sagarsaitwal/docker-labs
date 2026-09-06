@@ -40,7 +40,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 2 | Environment variables, `--rm`, restart policies | **Complete** | [journal](JOURNAL.md#day-2--configuration-from-outside-the-image) &middot; [notes](daily-summary/day-02-env-and-restart.md) |
 | 3 | Images, tags, digests, registries | **Complete** | [journal](JOURNAL.md#day-3--images-tags-digests) &middot; [notes](daily-summary/day-03-images-tags-digests.md) |
 | 4 | Writing a first Dockerfile | **Complete** | [journal](JOURNAL.md#day-4--writing-a-first-dockerfile) &middot; [notes](daily-summary/day-04-first-dockerfile.md) |
-| 5 | Layer caching and `.dockerignore` | Not started | |
+| 5 | Layer caching and `.dockerignore` | **Complete** | [journal](JOURNAL.md#day-5--layer-caching-and-dockerignore) &middot; [notes](daily-summary/day-05-layer-caching.md) |
 | 6 | Named volumes and data persistence | Not started | |
 | 7 | Bind mounts and live-reload development | Not started | |
 | 8 | Networks and container DNS | Not started | |
@@ -128,6 +128,22 @@ Updated as I go - each line is something I have demonstrated in this repo.
 - **Why the `docker` group matters.** The daemon socket is `root:docker` mode
   `srw-rw----`, so group membership - not sudo - is what grants access, and it
   is effectively root-equivalent on the host.
+- **Why instruction order changes what a source edit costs.** A layer's cache
+  key includes everything before it, so one miss cascades to every layer
+  after it - even ones whose own inputs never changed. Measured directly:
+  editing one line of application code cost a `COPY . .`-then-`RUN pip
+  install` Dockerfile a real reinstall (1.1s -> 4.8s), while a Dockerfile that
+  copies the dependency manifest first barely moved (1.1s -> 1.5s) for the
+  identical edit.
+- **The build cache lives in the daemon, not the shell.** A "first ever"
+  build in a brand-new directory isn't necessarily cold - clearing bash
+  history does nothing to Docker's on-disk build cache, so leftover layers
+  from an earlier session can still show up as `CACHED`.
+- **`--no-cache` and `--pull` are not the same knob.** `--no-cache` forces
+  every instruction of mine to rerun regardless of the base image; `--pull`
+  only rechecks the registry for a newer base image and leaves my own layers
+  alone if nothing changed - confirmed at 7.1s versus 0.7s for the same
+  Dockerfile.
 
 ---
 

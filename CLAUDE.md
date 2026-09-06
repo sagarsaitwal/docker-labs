@@ -28,46 +28,47 @@ has been covered yet.
 | 2 | Environment variables, `--rm`, restart policies | Complete |
 | 3 | Images, tags, digests, registries | Complete |
 | 4 | Writing a first Dockerfile | Complete |
-| 5 | Layer caching and `.dockerignore` | **Next** |
-| 6-14 | See the README progress table | Not started |
+| 5 | Layer caching and `.dockerignore` | Complete |
+| 6 | Named volumes and data persistence | **Next** |
+| 7-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 4 Sep 2026. Day 4 is complete and written up in
-`daily-summary/day-04-first-dockerfile.md`. `examples/day-04-hello-app/` is the
-first Dockerfile this repo has ever contained, and the commit adding it is
-expected to flip CI's `dockerfile-lint` and `build-images` jobs from a no-op to
-doing real work for the first time - verify that run went green after pushing
-(preflighted locally with hadolint 2.12.0-alpine first, clean, exit 0, so it
-should pass, but confirm rather than assume).
+**Last session ended:** 6 Sep 2026. Day 5 is complete and written up in
+`daily-summary/day-05-layer-caching.md`, with one gap left open rather than
+papered over (see below) - no repo/`examples/` changes this time, all
+experiments ran in `~/docker-lab/day5`.
 
-Day 4 produced two findings that overturned the lesson plan's own predictions -
-both worth citing directly rather than re-deriving:
+Day 5 confirmed the ordering rule with real timings: editing one line of
+`app.py` (never `requirements.txt`) cost a `COPY . .`-before-`RUN pip install`
+Dockerfile a real reinstall (1.108s -> 4.824s), while a Dockerfile that copies
+the dependency manifest first barely moved (1.086s -> 1.457s) for the
+identical edit. `--no-cache` (7.1s, everything reran) versus `--pull` (0.7s,
+only rechecked the base image) also confirmed cleanly.
 
-- **A process at PID 1 in a container does not get normal signal defaults.**
-  Built the same app as exec-form and shell-form `CMD`, expecting exec form to
-  stop fast under `docker stop`. Both took the full ~10s grace period and were
-  force-killed (exit 137) - PID 1 status makes an unhandled `SIGTERM` *ignored*,
-  not fatal, regardless of which form wraps it. `docker run --init` (tini as
-  PID 1) fixed it: stop dropped to 0.4s with exit 143. See section 6 below.
-- **`.dockerignore` looked like it did nothing** until the variable was
-  isolated - BuildKit only transfers files a `COPY` actually names, so a narrow
-  `COPY app.py .` skipped a 50MB test file whether `.dockerignore` existed or
-  not. Rebuilding with `COPY . .` showed the real effect: 52.44MB vs 254B.
+**One thing left genuinely unfinished - don't cite it as settled:** Block B
+was meant to prove `.dockerignore` protects cache stability, not just context
+size, by adding an irrelevant 5MB `scratch.log` and comparing before/after
+`.dockerignore`. Only the safe half got run (`Dockerfile.fast` ignores the
+noise, confirmed). The failure-and-fix half - the same file breaking
+`Dockerfile.slow`'s cache, then `.dockerignore` fixing it - was never
+executed. The exact commands to close this are in
+`daily-summary/day-05-layer-caching.md` section 7. Offer these first if a
+new session starts before Day 6 begins; otherwise it's fine to let it stay
+open and move on.
 
-Both were chased down empirically after the first result contradicted
-expectation, rather than accepted or explained away - keep that standard for
-Day 5, which is exactly the topic (layer caching, `.dockerignore` ordering)
-these findings feed into directly.
+Also worth carrying forward: **Docker's build cache lives in the daemon, not
+the shell.** A "first ever" build in a brand-new directory showed several
+layers already `CACHED` this session, because an earlier (since
+history-cleared) session had left cache behind - clearing bash history does
+nothing to the daemon's on-disk build cache. Don't assume a fresh directory
+means a cold cache.
 
-Nothing is pending. Start at **Day 5 - layer caching and `.dockerignore`**,
-using the plan in `daily-summary/day-05-layer-caching.md`. Given the Day 4
-`.dockerignore` finding, it's worth having Sagar predict the BuildKit
-selective-transfer behavior *before* running the drill, rather than presenting
-it as new information.
+Start at **Day 6 - named volumes and data persistence**, using the plan in
+`daily-summary/day-06-volumes.md`.
 
 
 ---
@@ -252,6 +253,25 @@ Verified on this machine. Cite rather than re-test unless something changed.
   way). Only `COPY . .` exposed the real effect (52.44MB vs 254B). Never treat
   "no visible difference" as proof `.dockerignore` isn't needed.
 - **The `docker` group is root-equivalent** on the host.
+- **A layer's cache key includes everything before it, so one miss cascades
+  forward** to every later layer even if that layer's own inputs never
+  changed. Measured: editing one line of `app.py` (never `requirements.txt`)
+  forced a `COPY . .`-then-`RUN pip install` Dockerfile to actually reinstall
+  (1.108s -> 4.824s), while a Dockerfile copying the manifest first stayed
+  cached for that step (1.086s -> 1.457s).
+- **Docker's build cache lives in the daemon, not the shell.** Clearing bash
+  history does nothing to it - a "first ever" build in a brand-new directory
+  can still show layers as `CACHED` if an earlier, since-cleared session left
+  cache behind. Don't confuse `history -c` with `docker builder prune`.
+- **`--no-cache` and `--pull` solve different problems.** `--no-cache` forces
+  every instruction to rerun regardless of the base image (measured 7.1s).
+  `--pull` only rechecks the registry for a newer base image and leaves your
+  own layers cached if nothing changed (measured 0.7s, same Dockerfile).
+- **Open item, not yet demonstrated:** whether `.dockerignore` actually fixes
+  a broad-`COPY`-first Dockerfile's cache from being broken by an unrelated
+  file (e.g. a stray `scratch.log`). The safe case (a `COPY`-last Dockerfile
+  ignoring the same noise) is confirmed; the failure-and-fix case is queued -
+  see the Day 5 handoff above before citing this as settled.
 
 ---
 

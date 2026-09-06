@@ -279,7 +279,51 @@ no-op to doing real work for the first time.
 
 ---
 
-## Day 5 — _next up_
+## Day 5 — Layer caching and .dockerignore
+
+Two Dockerfiles, one difference: whether `COPY requirements.txt .` and
+`RUN pip install` come before or after the broad `COPY . .`.
+
+```dockerfile
+# slow: COPY . . then RUN pip install
+# fast: COPY requirements.txt . , RUN pip install, then COPY . .
+```
+
+Built both twice to establish a cached baseline (~1.1s each), then edited
+only `app.py` - never `requirements.txt` - and rebuilt both:
+
+```text
+slow:  1.108s -> 4.824s   (pip install reran for real, 2.6s of that)
+fast:  1.086s -> 1.457s   (pip install stayed CACHED)
+```
+
+Same one-line edit, and `slow` paid for a network reinstall it didn't need
+because `app.py` sat in the same `COPY . .` as `requirements.txt` -
+invalidating that layer cascades to everything after it, whether or not the
+later layer's own inputs actually changed.
+
+**Found something before I could explain it:** the very first build of the
+"fast" Dockerfile in a brand-new directory already showed most of its layers
+`CACHED`. Turned out clearing my bash history doesn't touch Docker's build
+cache at all - that lives in the daemon, on disk, completely separate from
+shell history. A "first ever" build isn't necessarily a cold one.
+
+**Left a gap on purpose rather than fake it:** Block B was supposed to prove
+`.dockerignore` protects the cache, not just the transfer size, by adding an
+irrelevant 5MB `scratch.log` and comparing before/after `.dockerignore`. I
+only tested the half that was already expected to be fine (`fast` ignores
+the noise regardless). The half that actually demonstrates the failure -
+`scratch.log` breaking `slow`'s cache, then `.dockerignore` fixing it -
+didn't get run this session. It's queued for next time; full notes in
+[`daily-summary/day-05-layer-caching.md`](daily-summary/day-05-layer-caching.md).
+
+Also confirmed `--no-cache` and `--pull` solve different problems: `--no-cache`
+forced every instruction to rerun (7.1s) while `--pull` only rechecked the
+registry for a newer base image, found nothing new, and left every layer of
+mine `CACHED` (0.7s). `docker builder prune` reclaimed 82.42MB of dangling
+cache built up across the session.
+
+## Day 6 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic
