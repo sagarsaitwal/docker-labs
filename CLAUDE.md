@@ -29,46 +29,41 @@ has been covered yet.
 | 3 | Images, tags, digests, registries | Complete |
 | 4 | Writing a first Dockerfile | Complete |
 | 5 | Layer caching and `.dockerignore` | Complete |
-| 6 | Named volumes and data persistence | **Next** |
-| 7-14 | See the README progress table | Not started |
+| 6 | Named volumes and data persistence | Complete |
+| 7 | Bind mounts and live-reload development | **Next** |
+| 8-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 6 Sep 2026. Day 5 is complete and written up in
-`daily-summary/day-05-layer-caching.md`, with one gap left open rather than
-papered over (see below) - no repo/`examples/` changes this time, all
-experiments ran in `~/docker-lab/day5`.
+**Last session ended:** 6 Sep 2026. Day 6 is complete and written up in
+`daily-summary/day-06-volumes.md` - no repo/`examples/` changes, all
+experiments ran in `~/docker-lab/day6`.
 
-Day 5 confirmed the ordering rule with real timings: editing one line of
-`app.py` (never `requirements.txt`) cost a `COPY . .`-before-`RUN pip install`
-Dockerfile a real reinstall (1.108s -> 4.824s), while a Dockerfile that copies
-the dependency manifest first barely moved (1.086s -> 1.457s) for the
-identical edit. `--no-cache` (7.1s, everything reran) versus `--pull` (0.7s,
-only rechecked the base image) also confirmed cleanly.
+Day 6 confirmed a container's writable layer and a named volume have
+genuinely independent lifecycles: wrote a row to Postgres via `-v
+pgdata:/var/lib/postgresql/data`, `docker rm -f`'d the container entirely,
+recreated it against the same volume - the row survived (the recreated
+container's own `CREATE TABLE demo` even failed with "already exists" before
+a `SELECT` was run). Only `docker volume rm pgdata` on the volume itself
+actually destroyed the data. A typo'd volume name (`pgdatta`) failed
+silently - no error, just a fresh empty volume mounted without complaint.
 
-**One thing left genuinely unfinished - don't cite it as settled:** Block B
-was meant to prove `.dockerignore` protects cache stability, not just context
-size, by adding an irrelevant 5MB `scratch.log` and comparing before/after
-`.dockerignore`. Only the safe half got run (`Dockerfile.fast` ignores the
-noise, confirmed). The failure-and-fix half - the same file breaking
-`Dockerfile.slow`'s cache, then `.dockerignore` fixing it - was never
-executed. The exact commands to close this are in
-`daily-summary/day-05-layer-caching.md` section 7. Offer these first if a
-new session starts before Day 6 begins; otherwise it's fine to let it stay
-open and move on.
+One open item, not chased down: `docker inspect -f '{{json .Mounts}}'` showed
+`"Mode":"z"` on a plain named-volume mount that never had `:z` typed on the
+`-v` flag - normally an SELinux relabel option, and SELinux is disabled on
+this machine per section 3. Noted in `daily-summary/day-06-volumes.md`
+section 3.3; worth a closer look if it comes up again, not urgent.
 
-Also worth carrying forward: **Docker's build cache lives in the daemon, not
-the shell.** A "first ever" build in a brand-new directory showed several
-layers already `CACHED` this session, because an earlier (since
-history-cleared) session had left cache behind - clearing bash history does
-nothing to the daemon's on-disk build cache. Don't assume a fresh directory
-means a cold cache.
+Day 5's still-open gap remains open too: Block B's `.dockerignore`-protects-
+`Dockerfile.slow` failure-and-fix case was never run (see
+`daily-summary/day-05-layer-caching.md` section 7 for the exact commands).
+Offer it if there's a natural moment, otherwise it's fine to leave queued.
 
-Start at **Day 6 - named volumes and data persistence**, using the plan in
-`daily-summary/day-06-volumes.md`.
+Start at **Day 7 - bind mounts and live-reload development**, using the plan
+in `daily-summary/day-07-bind-mounts.md`.
 
 
 ---
@@ -272,6 +267,31 @@ Verified on this machine. Cite rather than re-test unless something changed.
   file (e.g. a stray `scratch.log`). The safe case (a `COPY`-last Dockerfile
   ignoring the same noise) is confirmed; the failure-and-fix case is queued -
   see the Day 5 handoff above before citing this as settled.
+- **A named volume outlives the container that mounts it; the writable layer
+  does not.** Wrote a row to Postgres, `docker rm -f`'d the container
+  entirely, recreated it against the same volume name - the row survived, and
+  the recreated container's own `CREATE TABLE demo` failed with "already
+  exists" before a single `SELECT` even ran. Only `docker volume rm` on the
+  volume itself destroyed the data - a genuinely different, more destructive
+  operation than removing a container.
+- **A typo'd volume name is a silent failure.** `-v pgdatta:...` (misspelled,
+  meant `pgdata`) never errored - Docker created a fresh empty volume under
+  the wrong name and mounted it without complaint. `docker volume ls`
+  afterward is the only way to catch it (two similarly-named volumes sitting
+  side by side); there is no loud failure to notice.
+- **`docker volume prune` only removes anonymous volumes by default** on this
+  engine version - confirmed by its own warning text ("remove anonymous local
+  volumes not used by at least one container"). Named volumes, even if
+  unused, need `docker volume prune --all` to be reclaimed - a deliberate
+  safety default, not an oversight.
+- **`docker exec` runs as the container's default user unless `-u` is given**
+  - for `postgres:17-alpine` that's root. `psql` with no `-U` tries to
+  authenticate as that same OS/exec username as a Postgres role, which
+  produced `FATAL: role "root" does not exist`. Always pass `-U` (and `-d`)
+  explicitly rather than relying on either default.
+- **`docker inspect` resolves containers, images, volumes, and networks by
+  name generically** - `docker inspect pgdata` returned the volume's JSON
+  directly with no need to use the more specific `docker volume inspect`.
 
 ---
 

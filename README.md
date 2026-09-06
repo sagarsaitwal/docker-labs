@@ -41,7 +41,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 3 | Images, tags, digests, registries | **Complete** | [journal](JOURNAL.md#day-3--images-tags-digests) &middot; [notes](daily-summary/day-03-images-tags-digests.md) |
 | 4 | Writing a first Dockerfile | **Complete** | [journal](JOURNAL.md#day-4--writing-a-first-dockerfile) &middot; [notes](daily-summary/day-04-first-dockerfile.md) |
 | 5 | Layer caching and `.dockerignore` | **Complete** | [journal](JOURNAL.md#day-5--layer-caching-and-dockerignore) &middot; [notes](daily-summary/day-05-layer-caching.md) |
-| 6 | Named volumes and data persistence | Not started | |
+| 6 | Named volumes and data persistence | **Complete** | [journal](JOURNAL.md#day-6--named-volumes-and-data-persistence) &middot; [notes](daily-summary/day-06-volumes.md) |
 | 7 | Bind mounts and live-reload development | Not started | |
 | 8 | Networks and container DNS | Not started | |
 | 9 | Docker Compose | Not started | [example](examples/first-stack/) |
@@ -144,6 +144,16 @@ Updated as I go - each line is something I have demonstrated in this repo.
   only rechecks the registry for a newer base image and leaves my own layers
   alone if nothing changed - confirmed at 7.1s versus 0.7s for the same
   Dockerfile.
+- **A named volume outlives the container that mounts it; the writable layer
+  does not.** Wrote a row to Postgres, `docker rm -f`'d the container
+  entirely, recreated it against the same volume - the row survived. Only
+  `docker volume rm` on the volume itself actually destroyed it, proving the
+  two objects have genuinely independent lifecycles, not just similar
+  behavior on `stop`/`start`.
+- **A typo'd volume name fails silently, not loudly.** `-v pgdatta:...`
+  (misspelled) never errored - Docker created a brand-new empty volume under
+  the wrong name and mounted it without complaint. The only way to catch it
+  is noticing the data isn't there.
 
 ---
 

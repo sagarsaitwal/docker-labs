@@ -323,7 +323,48 @@ registry for a newer base image, found nothing new, and left every layer of
 mine `CACHED` (0.7s). `docker builder prune` reclaimed 82.42MB of dangling
 cache built up across the session.
 
-## Day 6 — _next up_
+## Day 6 — Named volumes and data persistence
+
+The direct fix for Day 1's disappearing edit. A container's writable layer
+belongs to the container object and dies with it; a named volume belongs to
+nothing but itself.
+
+```bash
+docker run -d --name db -e POSTGRES_PASSWORD=secret \
+  -v pgdata:/var/lib/postgresql/data postgres:17-alpine
+```
+
+Wrote a row, `docker rm -f`'d the container entirely, recreated it against
+the same volume - the row was still there. In fact the recreated container's
+first `CREATE TABLE demo` didn't even get that far: `ERROR: relation "demo"
+already exists`, proof of persistence before a single `SELECT` ran.
+
+Then destroyed the volume instead of the container:
+
+```bash
+docker volume rm pgdata
+```
+
+Recreated the identical container against the same volume name - and this
+time the table was genuinely gone. Same `docker run` command both times;
+the only thing that decided whether the data survived was which object got
+deleted.
+
+**The trap that matters most in practice:** typo'd the volume name
+(`pgdatta` instead of `pgdata`) and the container started up with no error
+at all. Docker just silently created a new, empty volume under the
+misspelled name. `docker volume ls` afterward showed both volumes sitting
+side by side - the only way to catch this mistake is noticing the data
+isn't there or spotting the extra entry, never a loud failure.
+
+Also picked up a smaller, real lesson along the way: `docker exec` runs as
+the container's default user (root, for this image) unless told otherwise,
+and `psql` with no `-U` tries to authenticate using that same name as a
+Postgres role - which is how `FATAL: role "root" does not exist` happened.
+Always pass `-U` and `-d` explicitly. Full write-up in
+[`daily-summary/day-06-volumes.md`](daily-summary/day-06-volumes.md).
+
+## Day 7 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic
