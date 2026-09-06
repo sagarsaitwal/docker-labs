@@ -31,3 +31,6 @@ desktop.ini
 # --- Logs ---
 *.log
 npm-debug.log*
+
+# --- KodeKloud reference material (not tracked - see CLAUDE.md section 9) ---
+KodeKloud/
