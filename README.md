@@ -42,7 +42,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 4 | Writing a first Dockerfile | **Complete** | [journal](JOURNAL.md#day-4--writing-a-first-dockerfile) &middot; [notes](daily-summary/day-04-first-dockerfile.md) |
 | 5 | Layer caching and `.dockerignore` | **Complete** | [journal](JOURNAL.md#day-5--layer-caching-and-dockerignore) &middot; [notes](daily-summary/day-05-layer-caching.md) |
 | 6 | Named volumes and data persistence | **Complete** | [journal](JOURNAL.md#day-6--named-volumes-and-data-persistence) &middot; [notes](daily-summary/day-06-volumes.md) |
-| 7 | Bind mounts and live-reload development | In progress | [notes](daily-summary/day-07-bind-mounts.md) |
+| 7 | Bind mounts and live-reload development | **Complete** | [journal](JOURNAL.md#day-7--bind-mounts-and-the-uid-mismatch) &middot; [notes](daily-summary/day-07-bind-mounts.md) |
 | 8 | Networks and container DNS | Not started | |
 | 9 | Docker Compose | Not started | [example](examples/first-stack/) |
 | 10 | Multi-service stack with healthchecks | Not started | [project 01](projects/01-node-postgres/) |
@@ -154,6 +154,22 @@ Updated as I go - each line is something I have demonstrated in this repo.
   (misspelled) never errored - Docker created a brand-new empty volume under
   the wrong name and mounted it without complaint. The only way to catch it
   is noticing the data isn't there.
+- **A bind mount has zero indirection.** `-v "$PWD":/data` means the
+  container and the host are opening the literal same file through two
+  different paths - no copy, no Docker-managed storage. Proved it directly:
+  a container appended to a bind-mounted file, and `cat`-ing it from the
+  host afterward showed both the host's original line and the container's
+  append.
+- **No UID translation happens across a bind mount.** A container process
+  running as root, no `--user` flag given, writes files owned by UID 0 on
+  the host - identical to host root, not a separate namespace. Found this
+  the hard way: `rm -rf` on my own lab folder failed because a file a
+  container had created wasn't mine to delete without `sudo`.
+- **A bind mount alone does not make live-reload work.** It only makes new
+  file content visible inside the container - a running process has no
+  reason to notice unless something is actively watching. Flask's `--debug`
+  reloader is what polls for the change and restarts the process; without
+  it, the same bind mount would keep serving stale code indefinitely.
 
 ---
 

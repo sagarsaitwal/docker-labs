@@ -364,7 +364,49 @@ Postgres role - which is how `FATAL: role "root" does not exist` happened.
 Always pass `-U` and `-d` explicitly. Full write-up in
 [`daily-summary/day-06-volumes.md`](daily-summary/day-06-volumes.md).
 
-## Day 7 — _next up_
+## Day 7 — Bind mounts and the UID mismatch
+
+A bind mount has zero indirection: `-v "$PWD":/data` means the container and
+the host are opening the literal same file through two different paths, no
+copy, no Docker-managed storage in between. Proved it directly - a container
+appending to a bind-mounted file, then `cat`-ing it from the host, showed
+both the host's original line and the container's append.
+
+```bash
+docker run --rm -v myvol:/data alpine sh -c 'echo hi > /data/x'
+docker run --rm -v "$PWD/relpath":/data alpine sh -c 'echo hi > /data/x'
+```
+
+Same flag, one character of difference (`/` on the left side or not) decides
+named volume versus bind mount. `myvol` became a tracked Docker volume;
+`relpath` became an ordinary directory on disk.
+
+**That ordinary directory came back to bite cleanup at the end of the day.**
+`rm -rf` on the lab folder failed outright - `relpath/x` had been created by
+a root process inside the container, and across a bind mount there's no UID
+translation at all: root inside the container *is* UID 0 on the host,
+identical to any other root-owned file. `sagar` (UID 1000) couldn't remove
+it without `sudo`. Better proof than the synthetic demo I'd planned, because
+it's exactly the kind of thing that actually happens with containerized
+build tools writing into a bind-mounted output directory.
+
+**The live-reload piece needed correcting before it was right.** The
+instinct is to credit the bind mount for a running Flask app picking up a
+host-side edit with no `docker` command involved. That's only half true: the
+mount just makes the new content visible on disk - a running process has no
+reason to notice unless something is actively watching for it. That
+something is Werkzeug's `--debug` reloader, which polls the source and
+restarts the whole process on a change. Confirmed the edit propagating live;
+the deliberate no-`--debug` counter-test to fully nail it down is still
+queued rather than run.
+
+Also hit, and left honestly unexplained: `pip install flask` failed
+completely on the first attempt with a TLS certificate verification error
+reaching PyPI, then succeeded moments later with the identical command and
+no changes made. The failure signature matches a TLS-inspecting network path,
+but that wasn't independently confirmed.
+
+## Day 8 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

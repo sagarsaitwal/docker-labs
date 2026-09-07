@@ -30,33 +30,36 @@ has been covered yet.
 | 4 | Writing a first Dockerfile | Complete |
 | 5 | Layer caching and `.dockerignore` | Complete |
 | 6 | Named volumes and data persistence | Complete |
-| 7 | Bind mounts and live-reload development | **In progress** |
-| 8-14 | See the README progress table | Not started |
+| 7 | Bind mounts and live-reload development | Complete |
+| 8 | Networks and container DNS | **Next** |
+| 9-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 7 Sep 2026, mid-Day-7, cut short by Sagar's mobile
-data recharge expiring rather than anything Docker-related. Day 6 is
-complete and pushed. Day 7 is **in progress, not started hands-on yet** -
-`daily-summary/day-07-bind-mounts.md` has the concept walkthrough and Block A
-task, but no real command has actually been run or reported back. Do not
-treat anything in that file as verified; it's plan only.
+**Last session ended:** 7 Sep 2026. Day 7 is complete and pushed -
+`daily-summary/day-07-bind-mounts.md` covers bind-mount-vs-copy, the `-v`
+disambiguation rule, `:ro` mount enforcement, a real (unplanned) UID-mismatch
+encounter during cleanup, and Flask live-reload. One thing there is honestly
+flagged as reasoning rather than a confirmed run: the no-`--debug`
+counter-test for Task 5 was set up (`docker run ... | tee flask-debug.log`)
+but never actually executed before its terminal closed - Sagar correctly
+predicted the outcome (stale response, no reloader watching) but it's still
+queued to actually run, not blocking Day 8.
 
-**Resume Day 7 at Block A**, in `~/docker-lab/day7`: a one-route Flask app,
-run with
-`docker run --rm -it -p 5000:5000 -v "$PWD":/app -w /app python:3.12-slim sh -c "pip install flask -q && flask --app app run --host=0.0.0.0 --debug"`,
-then edit `app.py` on the host and `curl localhost:5000` again without
-touching Docker at all, to see whether the bind mount alone is enough or
-whether `--debug`'s reloader is the piece that makes the running process
-notice. This needs working internet (`pip install flask`, and possibly the
-base image pull) - confirm connectivity is back before assuming this will
-run cleanly.
+**Start Day 8 - networks and container DNS**, using the plan already written
+in `daily-summary/day-08-networks-dns.md`. Its core question: two containers
+on a user-defined network can resolve each other by name; the same two
+containers on the default bridge cannot. Also worth asking why
+`localhost:5432` inside an API container never reaches a `db` container even
+on the same network - a common early mistake (confusing "my own network
+namespace" with "the host's").
 
-Two smaller open items still queued from earlier days, worth offering if a
+Three smaller open items still queued from earlier days, worth offering if a
 natural moment comes up, otherwise fine to leave be:
+- Day 7: the Task 5 no-`--debug` counter-test above.
 - Day 6: `"Mode":"z"` on a plain named-volume mount despite SELinux being
   disabled on this machine - unexplained, see `daily-summary/day-06-volumes.md`
   section 3.3.
@@ -138,6 +141,16 @@ the commands, what to predict or observe, and let Sagar run them in his own
 Fedora terminal and report back. Diagnostic checks (confirming environment
 state, verifying a fix worked) are fine to run directly; the hands-on exercises
 are not.
+
+**Explain each command, don't just list them.** Said directly on 7 Sep 2026:
+*"only commands does not give me clarity of any command, so while giving
+tasks give explanation as well."* Running a command successfully isn't the
+same as understanding it. When giving a task, walk through what each flag and
+step actually does and why it produces the expected behavior - not only in an
+intro paragraph before the command block, but per command, the way Day 7
+Tasks 1-3 broke down exactly why `-v myvol:/data` vs `-v "$PWD/relpath":/data`
+diverge, or why a `:ro` mount fails at the kernel level rather than a
+permissions level.
 
 ---
 
@@ -404,3 +417,10 @@ Don't pull concepts from it into an explanation before the day that actually
 introduces them (see section 1's rule on not assuming a later day's concept is
 known yet) - it's a "here's how a real project does it" comparison for Days 9,
 10, and 12, not early reference material.
+
+**Hold on adding any new reference to it anywhere in the project until Sagar
+explicitly says to.** Said directly on 7 Sep 2026: reaching Day 9/10/12 is not
+by itself the signal to bring it in - wait for Sagar to ask. This section and
+the `.gitignore` entry are the one exception, already committed before this
+rule was added; that's not being undone, it's just not being built on further
+for now.
