@@ -31,35 +31,44 @@ has been covered yet.
 | 5 | Layer caching and `.dockerignore` | Complete |
 | 6 | Named volumes and data persistence | Complete |
 | 7 | Bind mounts and live-reload development | Complete |
-| 8 | Networks and container DNS | **Next** |
-| 9-14 | See the README progress table | Not started |
+| 8 | Networks and container DNS | Complete |
+| 9 | Docker Compose | **Next** |
+| 10-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 7 Sep 2026. Day 7 is complete and pushed -
-`daily-summary/day-07-bind-mounts.md` covers bind-mount-vs-copy, the `-v`
-disambiguation rule, `:ro` mount enforcement, a real (unplanned) UID-mismatch
-encounter during cleanup, and Flask live-reload. One thing there is honestly
-flagged as reasoning rather than a confirmed run: the no-`--debug`
-counter-test for Task 5 was set up (`docker run ... | tee flask-debug.log`)
-but never actually executed before its terminal closed - Sagar correctly
-predicted the outcome (stale response, no reloader watching) but it's still
-queued to actually run, not blocking Day 8.
+**Last session ended:** 10 Sep 2026. Day 8 is complete and pushed -
+`daily-summary/day-08-networks-dns.md` covers the default-bridge-has-no-DNS
+finding, a real (not staged) env-var typo that made a container silently
+exit and looked like a networking bug until `docker logs` explained it, why
+`localhost` never reaches a sibling container, and `docker network
+connect`/`disconnect` as a genuine live-reconfiguration exception. Three
+bonus network modes (`--network host`, `--network none`, cross-network
+isolation) were covered as reference material only, not run hands-on -
+fair game to actually run them if a natural moment comes up, but not queued
+as an open item.
 
-**Start Day 8 - networks and container DNS**, using the plan already written
-in `daily-summary/day-08-networks-dns.md`. Its core question: two containers
-on a user-defined network can resolve each other by name; the same two
-containers on the default bridge cannot. Also worth asking why
-`localhost:5432` inside an API container never reaches a `db` container even
-on the same network - a common early mistake (confusing "my own network
-namespace" with "the host's").
+**Start Day 9 - Docker Compose**, using the plan in
+`daily-summary/day-09-compose.md`. `examples/first-stack/` already has a
+working nginx + Postgres Compose stack to compare against once Sagar builds
+his own.
 
-Three smaller open items still queued from earlier days, worth offering if a
+On cheatsheets specifically: Sagar decided on 10 Sep 2026 **not** to backfill
+Days 3-7's findings into `cheatsheets/` - explicitly settled, not an open
+item, don't raise it again. Going forward the rule is narrower than "update
+the cheatsheet when a day finishes": only touch `cheatsheets/` when a genuinely
+new command that isn't already documented there comes up in a session (see
+section 5's finishing-a-day checklist).
+
+Four smaller open items still queued from earlier days, worth offering if a
 natural moment comes up, otherwise fine to leave be:
-- Day 7: the Task 5 no-`--debug` counter-test above.
+- Day 8: 2 anonymous `postgres:17-alpine` volumes left over from `db1`/`db2`,
+  never pruned (`docker volume prune`).
+- Day 7: the Task 5 no-`--debug` counter-test for Flask live-reload was
+  reasoned through correctly but never actually run.
 - Day 6: `"Mode":"z"` on a plain named-volume mount despite SELinux being
   disabled on this machine - unexplained, see `daily-summary/day-06-volumes.md`
   section 3.3.
@@ -198,8 +207,12 @@ results that were not reported.
    both the journal anchor and the notes file.
 4. Add any new bullets to README "What I can explain, not just run".
 5. Update `daily-summary/README.md` index row and its "Days 0-N" line.
-6. Update section 2 of this file.
-7. Check encoding, then commit.
+6. Update `cheatsheets/` **only if a command that isn't already documented
+   there came up this session.** Said directly on 10 Sep 2026: don't backfill
+   older days retroactively, and don't touch the cheatsheets just because a
+   day finished - only when a genuinely new command actually appeared.
+7. Update section 2 of this file.
+8. Check encoding, then commit.
 
 ### Writing style
 

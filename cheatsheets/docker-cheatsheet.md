@@ -148,6 +148,8 @@ ADD               = use only when its extra behavior is needed
 | `docker network rm app-net` | Delete network |
 | `docker network prune` | Remove unused networks |
 | `docker port web` | Published ports |
+| `docker run --network host ...` | No isolation - shares host's network stack, `-p` meaningless |
+| `docker run --network none ...` | Total isolation - only loopback exists |
 
 ### Typical app network
 
@@ -167,7 +169,19 @@ Inside `api`, connect to:
 db:5432
 ```
 
-**User-defined Docker networks provide container-name DNS.**
+**User-defined Docker networks provide container-name DNS. The default
+bridge (no `--network` flag) does not - only the deprecated `--link` flag
+worked there.**
+
+**`localhost` inside a container is never a sibling container** - every
+container has its own private loopback. Connect/disconnect change a
+*running* container's network membership live, no recreation needed.
+
+**Silent-failure checklist when a name "should" resolve but doesn't:**
+`docker ps -a` first (an exited container vanishes from `network inspect`'s
+Containers list), then `docker logs <name>` (a typo'd env var Docker never
+validates is a common cause), then `getent hosts <name>; echo $?` (a failed
+lookup prints nothing, not an error).
 
 ---
 

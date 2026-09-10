@@ -468,21 +468,56 @@ docker network prune
 
 ```bash
 docker network create app-net
-docker run -d --name db --network app-net postgres:16
+docker run -d --name db --network app-net -e POSTGRES_PASSWORD=secret postgres:17-alpine
 docker run -it --rm --network app-net alpine sh
 ```
 
 Inside the second container:
 
 ```bash
-ping db
-curl http://db:5432
+apk add --no-cache bind-tools curl
+getent hosts db                # resolves - real IP on app-net
+curl -v telnet://db:5432        # connects
+curl -v telnet://localhost:5432 # refused - see note below
+```
+
+**Only a user-defined network (created with `docker network create`) has
+DNS.** The default bridge - what a container gets with no `--network` flag -
+predates that feature and never got it added; `getent hosts db` there
+returns nothing at all, not an error. It only ever supported the old,
+deprecated `--link` flag.
+
+**`localhost` inside a container never means a sibling container.** Every
+container has its own private network namespace, including its own loopback
+- `localhost` always means "this exact container." Reaching `db` requires
+its name (DNS) or its IP, never `localhost`, no matter how tightly networked
+the two containers are.
+
+### Network membership is live-editable
+
+```bash
+docker network connect app-net web
+docker network disconnect app-net web
+```
+
+Unlike almost every other container property (env, ports, image, command),
+network membership changes on a *running* container with no recreation -
+alongside `docker update`, one of the few genuine exceptions to "change
+config = replace the container."
+
+### `--network host` and `--network none`
+
+```bash
+docker run --rm -d --network host nginx:alpine   # no isolation - shares the host's real network stack; -p is meaningless here
+docker run --rm --network none alpine ip addr    # only a loopback interface exists, nothing else
 ```
 
 ### Useful network commands
 
 ```bash
-docker exec web getent hosts db
+docker exec web getent hosts db; echo "exit code: $?"   # a failed lookup is SILENT - check $? if the empty output is ambiguous
+docker ps -a --format "table {{.Names}}\t{{.Status}}"    # check this before suspecting the network - an exited container
+                                                          # vanishes from `docker network inspect`'s Containers list
 ```
 
 ---

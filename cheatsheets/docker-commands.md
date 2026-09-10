@@ -1162,6 +1162,27 @@ docker network connect app-net web
 docker network disconnect app-net web
 ```
 
+**Network membership is live-editable, unlike almost everything else about
+a container.** `connect`/`disconnect` change a *running* container's DNS
+resolvability with no recreation needed - confirmed by connecting a
+container created without `--network`, resolving it by name, disconnecting
+it, and watching that same name resolution fail again, same container the
+entire time. Alongside `docker update`, one of the few real exceptions to
+"change config = replace the container."
+
+------------------------------------------------------------------------
+
+## `--network host` and `--network none`
+
+``` bash
+docker run --rm -d --network host nginx:alpine   # shares the host's real network stack - no isolation, -p is meaningless
+docker run --rm --network none alpine ip addr    # only a loopback interface exists
+```
+
+**Use case:** `host` for something that genuinely needs host-level network
+access (rare); `none` for a container that should never be able to reach
+anything on the network, even if compromised.
+
 ------------------------------------------------------------------------
 
 ## Inspect network
@@ -1196,18 +1217,32 @@ docker network prune
 If both containers are on the same user-defined network:
 
 ``` bash
-docker run -d --name db --network app-net postgres
+docker run -d --name db --network app-net -e POSTGRES_PASSWORD=secret postgres:17-alpine
 docker run -it --rm --network app-net alpine sh
 ```
 
 Inside the Alpine container:
 
 ``` sh
-ping db
+apk add --no-cache bind-tools
+getent hosts db; echo "exit code: $?"   # a failed lookup is SILENT - empty output, non-zero exit, no error text
 ```
 
 **Use case:** Containers can normally resolve each other by
-container/service name on user-defined networks.
+container/service name on user-defined networks. **The default bridge (no
+`--network` flag) cannot do this at all** - it predates Docker's embedded
+DNS resolver and only ever supported the deprecated `--link` flag.
+
+**If a container "should" resolve but doesn't:** check `docker ps -a`
+first - `docker network inspect`'s `Containers` field only reflects
+currently-running containers, so one that exited (a typo'd env var is a
+common silent cause, e.g. `POSTGRESS_PASSWORD` instead of
+`POSTGRES_PASSWORD` - Docker never validates `-e` names) will vanish from
+there even though `docker ps -a` still shows it.
+
+**`localhost` inside a container never reaches a sibling container**, same
+network or not - every container has its own private loopback. Address a
+sibling by name or IP, never `localhost`.
 
 ------------------------------------------------------------------------
 

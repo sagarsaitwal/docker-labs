@@ -406,7 +406,49 @@ reaching PyPI, then succeeded moments later with the identical command and
 no changes made. The failure signature matches a TLS-inspecting network path,
 but that wasn't independently confirmed.
 
-## Day 8 — _next up_
+## Day 8 — Networks and container DNS
+
+Two containers, no `--network` flag on either, both landed on the default
+bridge - and `getent hosts` came back completely empty. Not a fluke: the
+default bridge predates Docker's embedded DNS resolver and never got one
+added. Create a real network instead and the exact same lookup works:
+
+```bash
+docker network create app-net
+docker run -d --name db2 --network app-net -e POSTGRES_PASSWORD=secret postgres:17-alpine
+docker run --rm -it --network app-net alpine sh -c "apk add --no-cache bind-tools -q && getent hosts db2"
+```
+
+**Except it didn't work the first time**, and the reason was more
+interesting than the network. `db2` had actually exited immediately -
+`-e POSTGRESS_PASSWORD=secret` (one typo'd letter) meant Postgres's own
+startup script never saw the `POSTGRES_PASSWORD` it requires and refused to
+start. Docker doesn't validate `-e` names at all; it set the misspelled
+variable exactly as typed, same as any other silent-failure typo this repo
+has hit. `docker network inspect` showing an empty `Containers` list was the
+tell - not a networking bug, just a container that was never actually there.
+
+Fixed the spelling, confirmed `db2` running, and got a real resolution:
+`172.18.0.2 db2 db2`. Then proved the thing that trips people up constantly:
+
+```bash
+curl -v telnet://localhost:5432   # Connection refused
+curl -v telnet://db2:5432         # Established connection to db2 (172.18.0.2)
+```
+
+Same network, wildly different results, because every container gets its
+own private loopback. `localhost` inside a container only ever means "this
+exact container" - never a sibling, no matter how close the two are on the
+same Docker network.
+
+Last piece: `docker network connect`/`disconnect` change a running
+container's DNS resolvability with zero recreation - watched `db1` go from
+unresolvable (default bridge only) to resolvable (connected to `app-net`) and
+back to unresolvable (disconnected), same container, same process the whole
+time. A genuine exception to "change config = replace the container,"
+alongside Day 2's `docker update`.
+
+## Day 9 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

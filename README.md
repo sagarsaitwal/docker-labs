@@ -43,7 +43,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 5 | Layer caching and `.dockerignore` | **Complete** | [journal](JOURNAL.md#day-5--layer-caching-and-dockerignore) &middot; [notes](daily-summary/day-05-layer-caching.md) |
 | 6 | Named volumes and data persistence | **Complete** | [journal](JOURNAL.md#day-6--named-volumes-and-data-persistence) &middot; [notes](daily-summary/day-06-volumes.md) |
 | 7 | Bind mounts and live-reload development | **Complete** | [journal](JOURNAL.md#day-7--bind-mounts-and-the-uid-mismatch) &middot; [notes](daily-summary/day-07-bind-mounts.md) |
-| 8 | Networks and container DNS | Not started | |
+| 8 | Networks and container DNS | **Complete** | [journal](JOURNAL.md#day-8--networks-and-container-dns) &middot; [notes](daily-summary/day-08-networks-dns.md) |
 | 9 | Docker Compose | Not started | [example](examples/first-stack/) |
 | 10 | Multi-service stack with healthchecks | Not started | [project 01](projects/01-node-postgres/) |
 | 11 | Debugging: exit codes, logs, `inspect` | Not started | |
@@ -170,6 +170,19 @@ Updated as I go - each line is something I have demonstrated in this repo.
   reason to notice unless something is actively watching. Flask's `--debug`
   reloader is what polls for the change and restarts the process; without
   it, the same bind mount would keep serving stale code indefinitely.
+- **Only a user-defined network has DNS.** The default bridge predates
+  Docker's embedded resolver and never got one - two containers there can't
+  resolve each other by name at all, only `docker network create`'d
+  networks can.
+- **`localhost` inside a container never means a sibling container.** Every
+  container gets its own private loopback; `curl localhost:5432` and
+  `curl db2:5432` from the exact same shell, on the exact same network,
+  connect refused versus succeeded - one's this container talking to
+  itself, the other is a real connection to a different IP.
+- **Network membership is genuinely live-editable.** `docker network
+  connect`/`disconnect` change a running container's DNS resolvability with
+  no recreation - watched a container go resolvable, unresolvable, and back,
+  same container the entire time.
 
 ---
 

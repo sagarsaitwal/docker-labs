@@ -450,6 +450,37 @@ docker exec api curl -v http://db:8080   # can I actually reach it?
 > a service running on your *host*, use `host.docker.internal` (Docker Desktop on
 > Windows/macOS).
 
+### Network membership is one of the few things you can change live
+
+```bash
+docker network connect app-net web
+docker network disconnect app-net web
+```
+
+Unlike env vars, ports, image, or command, network membership changes on a
+*running* container - no recreation. Alongside `docker update`, this is one
+of the few genuine exceptions to "change config, replace the container."
+
+### The two network extremes
+
+```bash
+docker run --network host ...   # no isolation - shares the host's real network stack, -p means nothing
+docker run --network none ...   # only a loopback interface, nothing else - total isolation
+```
+
+### When a container "should" resolve but doesn't
+
+```bash
+docker ps -a                 # check this FIRST - an exited container vanishes
+                              # from `docker network inspect`'s Containers list,
+                              # which looks exactly like a networking failure
+docker logs <container>       # a typo'd env var (e.g. an app requiring a
+                              # specific name Docker never validates) is a
+                              # common silent cause of "container never started"
+getent hosts <name>; echo $?  # a failed lookup is silent - empty output,
+                              # non-zero exit, no error text
+```
+
 ---
 
 ## 9) Compose: stop typing long `run` commands
