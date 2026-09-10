@@ -41,22 +41,25 @@ finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 10 Sep 2026. Day 9 is complete and pushed -
-`daily-summary/day-09-compose.md` covers Compose's automatic per-project
-network (proven via `docker compose config`'s render, not just asserted), a
-real YAML-tabs mistake (`vi`'s default Tab key vs. YAML's space-only
-indentation rule), catching a typo'd env var via `docker compose config`
-with zero containers involved, and a volume-persistence test that gave a
-misleading result on the first pass (no `volumes:` block existed at all) -
-caught, diagnosed, and redone correctly rather than accepted at face value.
+**Last session ended:** 11 Sep 2026. Day 9 is complete and pushed. Day 10 is
+**not started hands-on** - Sagar said "hold here, I have not started yet"
+right after the concept walkthrough was given, before any command was run or
+any file in `projects/01-node-postgres/` touched. Don't re-explain the
+mechanism from scratch next session; check
+`daily-summary/day-10-multiservice-healthcheck.md`'s progress note first -
+it already covers the healthcheck fields (`test`/`interval`/`timeout`/
+`retries`/`start_period`), why `depends_on: condition: service_healthy` fixes
+Day 9's startup race, and why the app still needs its own connection retry
+logic on top of that (the healthcheck only gates the *initial* start order,
+not a `db` restart later while `api` is already connected).
+`examples/first-stack/compose.yaml` was pointed to as the reference pattern.
 
-**Start Day 10 - multi-service stack with healthchecks**, using the plan in
-`daily-summary/day-10-multiservice-healthcheck.md`. Its natural hook: Day
-9's `depends_on: - db` (no condition) raced Postgres's own startup twice
-this session - Day 10 is where `condition: service_healthy` actually fixes
-that properly, rather than manually checking `docker compose logs` for a
-readiness line. `examples/first-stack/compose.yaml` already demonstrates
-the healthcheck pattern Day 10 should explain, not just copy.
+**Resume Day 10 by actually building** `projects/01-node-postgres/` to its
+acceptance criteria - the Dockerfile (pinned base, manifest-before-source
+`COPY`, non-root user, `HEALTHCHECK`) and `compose.yaml` (both services,
+named volume, `db` healthcheck, `api`'s `depends_on: condition:
+service_healthy`, password from the environment). Per section 5, do not
+write this solution - Sagar builds it, reports back what breaks.
 
 On cheatsheets: still the settled rule from 10 Sep 2026 - only touch
 `cheatsheets/` when a genuinely new command that isn't already documented

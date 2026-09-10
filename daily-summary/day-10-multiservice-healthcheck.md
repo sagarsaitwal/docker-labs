@@ -2,9 +2,20 @@
 
 **Date:** ____
 **Goal:** Build project 01 (Node/Python API + Postgres) properly.
-**Status:** Not started
+**Status:** Not started - paused before any hands-on work began.
 
 **Brief:** `projects/01-node-postgres/README.md` - work to its acceptance criteria.
+
+**Progress note (11 Sep 2026):** the concept walkthrough was given - the
+healthcheck block field by field (`test`/`interval`/`timeout`/`retries`/
+`start_period`, and why `pg_isready` via `CMD-SHELL`), `depends_on:
+condition: service_healthy` as the actual fix for Day 9's startup race, and
+why the app still needs its own connection retry logic even with a
+healthcheck in place (it only gates the *initial* start order, not what
+happens if `db` restarts later while `api` is already connected).
+`examples/first-stack/compose.yaml` was pointed to as the reference pattern
+to study, not copy. No commands have been run and no files in
+`projects/01-node-postgres/` have been touched yet - resume there.
 
 ---
 
