@@ -44,7 +44,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 6 | Named volumes and data persistence | **Complete** | [journal](JOURNAL.md#day-6--named-volumes-and-data-persistence) &middot; [notes](daily-summary/day-06-volumes.md) |
 | 7 | Bind mounts and live-reload development | **Complete** | [journal](JOURNAL.md#day-7--bind-mounts-and-the-uid-mismatch) &middot; [notes](daily-summary/day-07-bind-mounts.md) |
 | 8 | Networks and container DNS | **Complete** | [journal](JOURNAL.md#day-8--networks-and-container-dns) &middot; [notes](daily-summary/day-08-networks-dns.md) |
-| 9 | Docker Compose | Not started | [example](examples/first-stack/) |
+| 9 | Docker Compose | **Complete** | [journal](JOURNAL.md#day-9--docker-compose) &middot; [notes](daily-summary/day-09-compose.md) &middot; [example](examples/first-stack/) |
 | 10 | Multi-service stack with healthchecks | Not started | [project 01](projects/01-node-postgres/) |
 | 11 | Debugging: exit codes, logs, `inspect` | Not started | |
 | 12 | Multi-stage builds and image size | Not started | [project 03](projects/03-react-multistage/) |
@@ -183,6 +183,16 @@ Updated as I go - each line is something I have demonstrated in this repo.
   connect`/`disconnect` change a running container's DNS resolvability with
   no recreation - watched a container go resolvable, unresolvable, and back,
   same container the entire time.
+- **Compose creates a real network automatically.** No `networks:` block
+  needed in a `compose.yaml` - `docker compose config`'s own render shows
+  the project-scoped network it creates, which is why services resolve each
+  other by name for free, unlike a plain `docker run` with no `--network`.
+- **A named volume must actually be declared to persist anything.** An
+  image's own built-in (anonymous) volume does not survive a full container
+  teardown - only an explicit named volume in `compose.yaml`'s `volumes:`
+  block reattaches across `down`/`up`. Found this by getting a misleading
+  result first, tracing it back to a missing `volumes:` block, and redoing
+  the test properly.
 
 ---
 

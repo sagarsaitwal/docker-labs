@@ -32,41 +32,40 @@ has been covered yet.
 | 6 | Named volumes and data persistence | Complete |
 | 7 | Bind mounts and live-reload development | Complete |
 | 8 | Networks and container DNS | Complete |
-| 9 | Docker Compose | **Next** |
-| 10-14 | See the README progress table | Not started |
+| 9 | Docker Compose | Complete |
+| 10 | Multi-service stack with healthchecks | **Next** |
+| 11-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 10 Sep 2026. Day 8 is complete and pushed -
-`daily-summary/day-08-networks-dns.md` covers the default-bridge-has-no-DNS
-finding, a real (not staged) env-var typo that made a container silently
-exit and looked like a networking bug until `docker logs` explained it, why
-`localhost` never reaches a sibling container, and `docker network
-connect`/`disconnect` as a genuine live-reconfiguration exception. Three
-bonus network modes (`--network host`, `--network none`, cross-network
-isolation) were covered as reference material only, not run hands-on -
-fair game to actually run them if a natural moment comes up, but not queued
-as an open item.
+**Last session ended:** 10 Sep 2026. Day 9 is complete and pushed -
+`daily-summary/day-09-compose.md` covers Compose's automatic per-project
+network (proven via `docker compose config`'s render, not just asserted), a
+real YAML-tabs mistake (`vi`'s default Tab key vs. YAML's space-only
+indentation rule), catching a typo'd env var via `docker compose config`
+with zero containers involved, and a volume-persistence test that gave a
+misleading result on the first pass (no `volumes:` block existed at all) -
+caught, diagnosed, and redone correctly rather than accepted at face value.
 
-**Start Day 9 - Docker Compose**, using the plan in
-`daily-summary/day-09-compose.md`. `examples/first-stack/` already has a
-working nginx + Postgres Compose stack to compare against once Sagar builds
-his own.
+**Start Day 10 - multi-service stack with healthchecks**, using the plan in
+`daily-summary/day-10-multiservice-healthcheck.md`. Its natural hook: Day
+9's `depends_on: - db` (no condition) raced Postgres's own startup twice
+this session - Day 10 is where `condition: service_healthy` actually fixes
+that properly, rather than manually checking `docker compose logs` for a
+readiness line. `examples/first-stack/compose.yaml` already demonstrates
+the healthcheck pattern Day 10 should explain, not just copy.
 
-On cheatsheets specifically: Sagar decided on 10 Sep 2026 **not** to backfill
-Days 3-7's findings into `cheatsheets/` - explicitly settled, not an open
-item, don't raise it again. Going forward the rule is narrower than "update
-the cheatsheet when a day finishes": only touch `cheatsheets/` when a genuinely
-new command that isn't already documented there comes up in a session (see
-section 5's finishing-a-day checklist).
+On cheatsheets: still the settled rule from 10 Sep 2026 - only touch
+`cheatsheets/` when a genuinely new command that isn't already documented
+there comes up in a session (see section 5's checklist). Nothing new came up
+in Day 9 worth adding (`docker compose config`, `up`/`down`/`logs`/`exec`
+were already covered).
 
-Four smaller open items still queued from earlier days, worth offering if a
+Three smaller open items still queued from earlier days, worth offering if a
 natural moment comes up, otherwise fine to leave be:
-- Day 8: 2 anonymous `postgres:17-alpine` volumes left over from `db1`/`db2`,
-  never pruned (`docker volume prune`).
 - Day 7: the Task 5 no-`--debug` counter-test for Flask live-reload was
   reasoned through correctly but never actually run.
 - Day 6: `"Mode":"z"` on a plain named-volume mount despite SELinux being

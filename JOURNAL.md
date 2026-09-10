@@ -448,7 +448,45 @@ back to unresolvable (disconnected), same container, same process the whole
 time. A genuine exception to "change config = replace the container,"
 alongside Day 2's `docker update`.
 
-## Day 9 — _next up_
+## Day 9 — Docker Compose
+
+Converted Day 8's two ad-hoc containers into one `compose.yaml`, and the
+first real lesson arrived before the file even parsed: `vi`'s default Tab
+key inserts a literal tab, and YAML forbids tabs for indentation entirely.
+`cat -te` made the invisible whitespace visible (tabs show as `^I`) and
+confirmed the fix.
+
+Once valid, `docker compose config` rendered the network Compose creates
+automatically for every project - no `networks:` block written anywhere,
+yet the render showed `day9_default` right there. That's the actual
+mechanism behind something that looked like magic: Compose is doing Day 8's
+`docker network create` step for you, silently.
+
+```bash
+docker compose config    # renders the resolved config - starts nothing
+```
+
+Used that same command to catch a deliberately typo'd `POSTGRESS_PASSWORD`
+before ever running `up` - same mistake as Day 8, this time caught by
+reading a render instead of debugging a crash afterward.
+
+**The volume-persistence test needed a redo, and the reason why was the real
+lesson.** First attempt: `compose.yaml` had no `volumes:` block at all, so a
+`CREATE TABLE` didn't survive `down`/`up` - not proof that named volumes
+don't persist, just proof there wasn't one to test. Added
+`volumes: - db-data:/var/lib/postgresql/data`, matching
+`examples/first-stack/compose.yaml`'s actual pattern, and the identical
+`CREATE TABLE` → `down` → `up` cycle preserved the table cleanly. `down -v`
+then destroyed it, with the CLI's own `Volume ... Removed` /
+`Volume ... Created` lines as direct proof.
+
+Also hit, twice: running a command immediately after `up -d` can race
+Postgres's own startup (`depends_on` without a healthcheck only waits for
+"started," not "ready"), producing a connection failure that looks like data
+loss but isn't. Checking `docker compose logs` for the readiness line fixed
+it - full treatment of that problem is Day 10.
+
+## Day 10 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

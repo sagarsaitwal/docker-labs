@@ -4,7 +4,7 @@ The long-form working notebook for this repository. `../JOURNAL.md` is the
 condensed narrative of the same journey; these files carry the full detail -
 every command, every mistake, and the reasoning behind each fix.
 
-One file per day. Days 0-8 are written up; days 9-14 are prepared templates
+One file per day. Days 0-9 are written up; days 10-14 are prepared templates
 with the plan, the commands to practise, and a drill — fill in the bottom four
 sections as you go.
 
@@ -19,7 +19,7 @@ sections as you go.
 | [day-06](day-06-volumes.md) | Named volumes, persistence | Complete |
 | [day-07](day-07-bind-mounts.md) | Bind mounts, live reload | Complete |
 | [day-08](day-08-networks-dns.md) | Networks and container DNS | Complete |
-| [day-09](day-09-compose.md) | Docker Compose | Not started |
+| [day-09](day-09-compose.md) | Docker Compose | Complete |
 | [day-10](day-10-multiservice-healthcheck.md) | Multi-service stack, healthchecks | Not started |
 | [day-11](day-11-debugging.md) | Debugging, exit codes | Not started |
 | [day-12](day-12-multistage.md) | Multi-stage builds, image size | Not started |
