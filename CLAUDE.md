@@ -33,39 +33,49 @@ has been covered yet.
 | 7 | Bind mounts and live-reload development | Complete |
 | 8 | Networks and container DNS | Complete |
 | 9 | Docker Compose | Complete |
-| 10 | Multi-service stack with healthchecks | **Next** |
-| 11-14 | See the README progress table | Not started |
+| 10 | Multi-service stack with healthchecks | Complete |
+| 11 | Debugging: exit codes, logs, `inspect` | **Next** |
+| 12-14 | See the README progress table | Not started |
 
 `README.md` holds the authoritative progress table. Update it whenever a day is
 finished.
 
 ### Session handoff - read this first
 
-**Last session ended:** 11 Sep 2026. Day 9 is complete and pushed. Day 10 is
-**not started hands-on** - Sagar said "hold here, I have not started yet"
-right after the concept walkthrough was given, before any command was run or
-any file in `projects/01-node-postgres/` touched. Don't re-explain the
-mechanism from scratch next session; check
-`daily-summary/day-10-multiservice-healthcheck.md`'s progress note first -
-it already covers the healthcheck fields (`test`/`interval`/`timeout`/
-`retries`/`start_period`), why `depends_on: condition: service_healthy` fixes
-Day 9's startup race, and why the app still needs its own connection retry
-logic on top of that (the healthcheck only gates the *initial* start order,
-not a `db` restart later while `api` is already connected).
-`examples/first-stack/compose.yaml` was pointed to as the reference pattern.
+**Last session ended:** 13 Sep 2026. Day 10 is complete - `projects/01-node-postgres/`
+now has a real, working `inventory-api` + Postgres stack (own naming, own
+table, built independently after a separate worked reference), passing every
+acceptance-criteria item achievable with Day 0-9 techniques. hadolint clean,
+`docker compose config` validated. Not yet pushed as of this handoff -
+confirm current push status before assuming.
 
-**Resume Day 10 by actually building** `projects/01-node-postgres/` to its
-acceptance criteria - the Dockerfile (pinned base, manifest-before-source
-`COPY`, non-root user, `HEALTHCHECK`) and `compose.yaml` (both services,
-named volume, `db` healthcheck, `api`'s `depends_on: condition:
-service_healthy`, password from the environment). Per section 5, do not
-write this solution - Sagar builds it, reports back what breaks.
+Day 10's real findings, worth citing rather than re-deriving (full detail in
+`daily-summary/day-10-multiservice-healthcheck.md`):
+- A container-internal `HEALTHCHECK` using `localhost` failed
+  (`Connection refused`) while the host reached the same endpoint fine -
+  Alpine's `/etc/hosts` maps `localhost` to both `127.0.0.1` and `::1`, the
+  app only binds the IPv4 wildcard, and Docker's dual-stack port publishing
+  at the host boundary is what let the host succeed regardless. Fix:
+  `127.0.0.1` explicitly for any container-internal check.
+- A persistence test gave a misleading "identical either way" result because
+  the seed script (`init.sql`) always inserts the same fixed rows - redone
+  with a hand-inserted marker row for real proof.
+- Compose names a project after its directory's *basename only* - copying a
+  finished project into its tracked location collided with an
+  identically-named scratch directory still running elsewhere (orphan
+  containers + a port conflict).
+- Image size (255MB) is over the brief's 200MB target - `docker history`
+  showed ~174MB is `node:22-alpine`'s own base layers, not the app.
+  Deliberately left open for Day 12 (multi-stage builds) rather than solved
+  with an untaught technique.
+
+**Start Day 11 - debugging: exit codes, logs, `inspect`**, using the plan in
+`daily-summary/day-11-debugging.md`.
 
 On cheatsheets: still the settled rule from 10 Sep 2026 - only touch
 `cheatsheets/` when a genuinely new command that isn't already documented
 there comes up in a session (see section 5's checklist). Nothing new came up
-in Day 9 worth adding (`docker compose config`, `up`/`down`/`logs`/`exec`
-were already covered).
+in Day 10 worth adding.
 
 Three smaller open items still queued from earlier days, worth offering if a
 natural moment comes up, otherwise fine to leave be:
@@ -319,6 +329,36 @@ Verified on this machine. Cite rather than re-test unless something changed.
 - **`docker inspect` resolves containers, images, volumes, and networks by
   name generically** - `docker inspect pgdata` returned the volume's JSON
   directly with no need to use the more specific `docker volume inspect`.
+- **A container-internal `localhost` healthcheck can fail while the host
+  reaches the same endpoint fine.** Alpine's `/etc/hosts` maps `localhost` to
+  both `127.0.0.1` and `::1`; an app bound only to the IPv4 wildcard
+  (`0.0.0.0`) has nothing listening on the IPv6 address, and `wget` inside
+  the container tried that one first with no fallback (`Connection refused`,
+  `FailingStreak: 48`). The host's `curl` never hits this - Docker publishes
+  ports as dual-stack (`0.0.0.0:PORT` and `[::]:PORT`) at the host boundary
+  regardless of what the app inside actually binds to. Fix: address
+  container-internal checks with `127.0.0.1` explicitly, confirmed by testing
+  it directly.
+- **A persistence test needs a marker the seed script doesn't create.**
+  `down`/`up` and `down -v`/`up` returned identical seeded rows on the first
+  pass in a Compose project - not proof data survived `-v`, just proof
+  `init.sql` inserts the same fixed rows either way. A hand-inserted marker
+  row (absent from the seed script) is what actually distinguished the two
+  cases: survived a plain `down`/`up`, gone after `down -v`/`up`.
+- **A Compose project's name defaults to its directory's basename only, not
+  the full path.** Two unrelated directories sharing a folder name collide on
+  containers, networks, and orphan detection - hit directly when copying a
+  finished project into its tracked repo location while an identically-named
+  scratch directory was still running elsewhere.
+- **A Docker healthcheck needs only one success to become `healthy`, but
+  `retries` consecutive failures to become `unhealthy`** - confirmed by
+  reading `.State.Health.Log` directly. Asymmetric on purpose: fast to trust
+  recovery, slow (debounced) to declare failure.
+- **Image size is usually dominated by the base image, not the Dockerfile's
+  own instructions.** `docker history` on a 255MB image showed ~174MB came
+  from `node:22-alpine`'s own layers (installing Node's runtime, npm, yarn);
+  the app's own layers totaled under 20MB. Check `docker history` before
+  guessing where to optimize.
 
 ---
 

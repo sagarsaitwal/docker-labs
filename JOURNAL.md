@@ -486,7 +486,56 @@ Postgres's own startup (`depends_on` without a healthcheck only waits for
 loss but isn't. Checking `docker compose logs` for the readiness line fixed
 it - full treatment of that problem is Day 10.
 
-## Day 10 — _next up_
+## Day 10 — Multi-service stack with healthchecks
+
+Built `projects/01-node-postgres/` for real: an `inventory-api` (Node/Express
++ `pg`) reading an `items` table from Postgres, `depends_on: condition:
+service_healthy` fixing the exact startup race Day 9 first exposed. Never
+having built a multi-file app project before, worked from a fully worked
+reference first (a `notes` app, deliberately a different domain so it stayed
+a study copy, not the deliverable), then built the real thing independently
+with entirely different naming - own table, own columns, own port.
+
+Hit the same real bug twice, which mattered more than fixing it once: a
+container-internal `HEALTHCHECK` calling `wget http://localhost/...` failed
+with `Connection refused`, while `curl` to the same route from the host
+worked fine. Root cause, chased down rather than guessed: Alpine's `/etc/hosts`
+lists `localhost` against both `127.0.0.1` and `::1`; the app only binds the
+IPv4 wildcard, so nothing is listening on the IPv6 address, and `wget`
+apparently tries that one first with no fallback. `curl` from the host never
+hits this at all - Docker publishes ports as dual-stack at the host boundary,
+regardless of what the app inside actually binds to. Fix: point
+container-internal checks at `127.0.0.1` explicitly. First time, this needed
+help to diagnose; second time, in the independently-built project, it was
+caught and fixed without any.
+
+**A persistence test proved nothing on the first pass, and catching that
+mattered more than the test itself.** `down`/`up` and `down -v`/`up` both
+returned identical seeded rows - not proof persistence survived `-v`, just
+proof the seed script (`init.sql`) inserts the same fixed rows either way,
+making "wiped and reseeded" indistinguishable from "never touched." Redone
+with a real marker row inserted by hand: it survived a plain `down`/`up` and
+was genuinely gone after `down -v`/`up` - the actual proof, not a coincidence
+that looked like one.
+
+Copying the finished files into the tracked `projects/01-node-postgres/`
+surfaced one more real thing: `docker compose up` failed there with an
+orphan-container warning and a port conflict, because Compose names a
+project after its directory's *basename* only - and an old scratch build at
+`~/docker-lab/projects/01-node-postgres` happened to share that exact name.
+Two unrelated directories, same project identity, real collision. Cleaned up
+both stale stacks and it came up cleanly.
+
+Left one thing open on purpose: the image came in at 255MB against the
+brief's 200MB target. `docker history` showed ~174MB of that is `node:22-alpine`'s
+own base layers (installing Node's runtime, npm, yarn) - not anything in the
+Dockerfile, which was already following every rule taught so far. Shrinking
+that further is exactly Day 12's subject (multi-stage builds), so it's
+recorded honestly as unfinished rather than solved early with a technique
+that hasn't been taught yet. Full write-up in
+[`daily-summary/day-10-multiservice-healthcheck.md`](daily-summary/day-10-multiservice-healthcheck.md).
+
+## Day 11 — _next up_
 
 <!-- Template for each entry:
 ## Day N — Topic

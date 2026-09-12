@@ -1,0 +1,40 @@
+services:
+
+  api:
+    build: .
+    ports:
+      - "4580:4500"
+    environment:
+      PG_HOST: database
+      PG_PORT: 5432
+      PG_USER: inventory_user
+      PG_PASSWORD: ${DB_PASSWORD:-inventorypass}
+      PG_DATABASE: inventory_db
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-inventorypass}
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U inventory_user -d inventory_db"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  inventory-data:

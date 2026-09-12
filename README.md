@@ -45,7 +45,7 @@ WSL2 - a standard Linux daemon and socket, not Docker Desktop.
 | 7 | Bind mounts and live-reload development | **Complete** | [journal](JOURNAL.md#day-7--bind-mounts-and-the-uid-mismatch) &middot; [notes](daily-summary/day-07-bind-mounts.md) |
 | 8 | Networks and container DNS | **Complete** | [journal](JOURNAL.md#day-8--networks-and-container-dns) &middot; [notes](daily-summary/day-08-networks-dns.md) |
 | 9 | Docker Compose | **Complete** | [journal](JOURNAL.md#day-9--docker-compose) &middot; [notes](daily-summary/day-09-compose.md) &middot; [example](examples/first-stack/) |
-| 10 | Multi-service stack with healthchecks | Not started | [project 01](projects/01-node-postgres/) |
+| 10 | Multi-service stack with healthchecks | **Complete** | [journal](JOURNAL.md#day-10--multi-service-stack-with-healthchecks) &middot; [notes](daily-summary/day-10-multiservice-healthcheck.md) &middot; [project 01](projects/01-node-postgres/) |
 | 11 | Debugging: exit codes, logs, `inspect` | Not started | |
 | 12 | Multi-stage builds and image size | Not started | [project 03](projects/03-react-multistage/) |
 | 13 | Publishing to a registry | Not started | |
@@ -193,6 +193,25 @@ Updated as I go - each line is something I have demonstrated in this repo.
   block reattaches across `down`/`up`. Found this by getting a misleading
   result first, tracing it back to a missing `volumes:` block, and redoing
   the test properly.
+- **`localhost` inside a minimal container isn't safe to assume.** A
+  `HEALTHCHECK` calling `wget http://localhost/...` failed with `Connection
+  refused` even though the app was reachable fine from the host - Alpine's
+  `/etc/hosts` maps `localhost` to both `127.0.0.1` and `::1`, the app only
+  binds the IPv4 wildcard, and nothing answers on the IPv6 address. `curl`
+  from the host never hits this, because Docker publishes ports as
+  dual-stack at the host boundary regardless of what the app inside actually
+  binds to. Fix: address container-internal checks with `127.0.0.1`
+  explicitly.
+- **A persistence test needs a marker the seed script doesn't create.**
+  `down`/`up` and `down -v`/`up` returned identical seeded rows on the first
+  pass - not proof data survived `-v`, just proof the seed script inserts
+  the same fixed rows either way. Redone with a row inserted by hand: it
+  survived a plain `down`/`up` and was genuinely gone after `down -v`/`up`.
+- **A Compose project is named after its directory's basename, not its full
+  path.** Two unrelated directories that happen to share a folder name
+  collide on containers, networks, and orphan detection - hit this directly
+  copying a finished project into its tracked location while an
+  identically-named scratch directory was still running.
 
 ---
 
