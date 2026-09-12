@@ -479,3 +479,26 @@ by itself the signal to bring it in - wait for Sagar to ask. This section and
 the `.gitignore` entry are the one exception, already committed before this
 rule was added; that's not being undone, it's just not being built on further
 for now.
+
+---
+
+## 10. Presentation - deferred until the plan is finished
+
+Not linked from `README.md`. Said directly on 13 Sep 2026: the real
+presentation is a **final** deliverable, built only once all 14 days are
+actually done - not something to link mid-progress. When that time comes:
+
+- Embed it as **images directly in `README.md`**, placed where each topic
+  naturally fits - not as a single external link to a separate page.
+- The same material doubles as **a LinkedIn post**.
+- Build every number in it from the finished `README.md`/`JOURNAL.md`/
+  `daily-summary/` content at that time, not from this note - the project
+  will have moved on by then.
+
+A draft 11-slide version (covering Days 0-10 + a Days 11-14 roadmap) was
+built 13 Sep 2026 with Claude Design's canvas editor as a proof of what this
+could look like - published, then unlinked from the README per the above.
+Its `.dc.html` source files are session-local, not committed to this repo,
+so treat it as a discarded first pass rather than something to extend -
+reasonable to start over from scratch for the real, finished version rather
+than trying to recover and continue that draft.
